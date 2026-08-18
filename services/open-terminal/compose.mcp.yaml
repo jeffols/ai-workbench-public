@@ -1,0 +1,38 @@
+# Compose fragment for Open Terminal (replaces code-sandbox).
+# Used by code-agent for code execution.
+# Also provides native Open WebUI integration (file sidebar + terminal).
+
+services:
+  open-terminal:
+    image: ${OPEN_TERMINAL_IMAGE:-ghcr.io/open-webui/open-terminal:latest}
+    profiles: [tools]
+    restart: unless-stopped
+    networks: [agents, tools]
+    expose:
+      - "8000"
+    environment:
+      OPEN_TERMINAL_API_KEY: ${OPEN_TERMINAL_API_KEY}
+      OPEN_TERMINAL_PIP_PACKAGES: "httpx"
+      OPEN_TERMINAL_ENABLE_TERMINAL: "true"
+      OPEN_TERMINAL_ENABLE_NOTEBOOKS: "false"
+      OPEN_TERMINAL_ENABLE_SYSTEM_PROMPT: "false"
+      MCPO_URL: http://mcpo:8000
+      REGISTRY_URL: http://agentregistry:8080
+      PYTHONPATH: /opt/workbench
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+    volumes:
+      - terminal-home:/home/user
+      - ../../scripts/workbench_discovery.py:/opt/workbench/discovery.py:ro
+      - ../../config/workbench-tools.json:/opt/workbench/tools.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5

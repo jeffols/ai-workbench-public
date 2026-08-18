@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "exported_at_utc": "2026-04-04T11:34:53.438589+00:00",
+  "models": [
+    {
+      "id": "model:0vsp92svfry4a15b75py",
+      "name": "azure-fast",
+      "provider": "openai_compatible",
+      "type": "language",
+      "credential": "credential:tfjr0511v4xn9y2wu529",
+      "created": "2026-04-04 11:33:38.093767+00:00",
+      "updated": "2026-04-04 11:33:38.093768+00:00"
+    },
+    {
+      "id": "model:2fk9smfvwk87co4x5r9r",
+      "name": "azure-strong",
+      "provider": "openai_compatible",
+      "type": "language",
+      "credential": "credential:tfjr0511v4xn9y2wu529",
+      "created": "2026-04-04 11:33:38.119256+00:00",
+      "updated": "2026-04-04 11:33:38.119257+00:00"
+    },
+    {
+      "id": "model:i6vq50a3ay5w52rwbw68",
+      "name": "embeddings",
+      "provider": "openai_compatible",
+      "type": "embedding",
+      "credential": "credential:tfjr0511v4xn9y2wu529",
+      "created": "2026-04-04 11:34:01.101419+00:00",
+      "updated": "2026-04-04 11:34:01.101421+00:00"
+    }
+  ],
+  "defaults": {
+    "default_chat_model": "model:0vsp92svfry4a15b75py",
+    "default_transformation_model": "model:2fk9smfvwk87co4x5r9r",
+    "large_context_model": null,
+    "default_text_to_speech_model": null,
+    "default_speech_to_text_model": null,
+    "default_embedding_model": "model:i6vq50a3ay5w52rwbw68",
+    "default_tools_model": "model:2fk9smfvwk87co4x5r9r"
+  },
+  "defaults_by_name": {
+    "default_chat_model": "azure-fast",
+    "default_transformation_model": "azure-strong",
+    "default_embedding_model": "embeddings",
+    "default_tools_model": "azure-strong"
+  }
+}

@@ -1,0 +1,69 @@
+services:
+  agentregistry:
+    image: ${AGENTREGISTRY_IMAGE:-agentregistry-server:latest}
+    # Built from upstream Go source via the workbench slim Dockerfile.
+    # Run `make build-registry` to clone upstream (v0.3.3 by default) +
+    # build the image; then `make up-registry` to start the profile.
+    build:
+      context: ./upstream
+      dockerfile: server.Dockerfile
+    restart: unless-stopped
+    profiles: [registry]
+    networks: [tools]
+    environment:
+      AGENT_REGISTRY_SERVER_ADDRESS: ":8080"
+      AGENT_REGISTRY_DATABASE_URL: >-
+        postgres://agentregistry:${REGISTRY_DB_PASSWORD}@registry-db:5432/agentregistry?sslmode=disable
+      AGENT_REGISTRY_AGENT_GATEWAY_PORT: "8081"
+      AGENT_REGISTRY_DATABASE_VECTOR_ENABLED: "false"
+      AGENT_REGISTRY_ENABLE_REGISTRY_VALIDATION: "false"
+      AGENT_REGISTRY_JWT_PRIVATE_KEY: ${REGISTRY_JWT_KEY}
+    depends_on:
+      registry-db: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { memory: 512M, cpus: "1" }
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v0/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  agentgateway:
+    image: ghcr.io/agentregistry-dev/agentregistry/arctl-agentgateway:v0.3.3
+    restart: unless-stopped
+    profiles: [registry]
+    networks: [agents, tools]
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ../../config/agentgateway:/config:ro
+    command: ["-f", "/config/agent-gateway.yaml"]
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+
+  registry-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    profiles: [registry]
+    networks: [tools]
+    environment:
+      POSTGRES_DB: agentregistry
+      POSTGRES_USER: agentregistry
+      POSTGRES_PASSWORD: ${REGISTRY_DB_PASSWORD}
+    volumes:
+      - registry-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "agentregistry"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  registry-data:

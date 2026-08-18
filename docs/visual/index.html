@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Workbench — Project Atlas</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d2a8ff;
+    --accent4: #f0883e;
+    --accent5: #f778ba;
+    --danger: #f85149;
+    --warning: #d29922;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    line-height: 1.6;
+  }
+  .hero {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+  }
+  .hero h1 { font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--text-muted); font-size: 1.1rem; margin-top: 0.5rem; max-width: 700px; margin-inline: auto; }
+  .hero .badges { display: flex; gap: 0.75rem; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .badge.blue { background: #58a6ff18; color: var(--accent); border-color: #58a6ff44; }
+  .badge.green { background: #3fb95018; color: var(--accent2); border-color: #3fb95044; }
+  .badge.purple { background: #d2a8ff18; color: var(--accent3); border-color: #d2a8ff44; }
+  .badge.orange { background: #f0883e18; color: var(--accent4); border-color: #f0883e44; }
+  .badge.pink { background: #f778ba18; color: var(--accent5); border-color: #f778ba44; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; gap: 0; overflow-x: auto; padding: 0 1rem;
+  }
+  nav a {
+    color: var(--text-muted); text-decoration: none; padding: 0.85rem 1.25rem;
+    font-size: 0.85rem; font-weight: 500; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+  }
+  nav a:hover, nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+  section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  section:last-child { border-bottom: none; }
+  h2 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+  h2 .num { color: var(--accent); font-size: 1rem; margin-right: 0.5rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .mermaid-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+  }
+  .mermaid { text-align: center; }
+
+  /* Grids */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+  }
+  .card h3 { font-size: 1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .card p, .card li { color: var(--text-muted); font-size: 0.88rem; }
+  .card ul { list-style: none; padding: 0; }
+  .card li { padding: 0.2rem 0; }
+  .card li::before { content: "→ "; color: var(--accent); }
+  .card.highlight { border-color: var(--accent); box-shadow: 0 0 20px #58a6ff11; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot.blue { background: var(--accent); }
+  .dot.green { background: var(--accent2); }
+  .dot.purple { background: var(--accent3); }
+  .dot.orange { background: var(--accent4); }
+  .dot.pink { background: var(--accent5); }
+  .dot.red { background: var(--danger); }
+
+  /* Seam table */
+  .seam-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .seam-table th {
+    text-align: left; padding: 0.75rem 1rem; color: var(--text-muted);
+    border-bottom: 2px solid var(--border); font-weight: 600; font-size: 0.8rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .seam-table td {
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .seam-table tr:last-child td { border-bottom: none; }
+  .seam-table .seam-name { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .seam-table .seam-what { color: var(--text); }
+  .seam-table .seam-why { color: var(--text-muted); }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: ''; position: absolute; left: 7px; top: 0; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .tl-item { position: relative; margin-bottom: 2rem; }
+  .tl-item::before {
+    content: ''; position: absolute; left: -2rem; top: 0.4rem;
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--accent); background: var(--bg);
+  }
+  .tl-item.done::before { background: var(--accent2); border-color: var(--accent2); }
+  .tl-item.current::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .tl-item.future::before { background: var(--bg); border-color: var(--text-muted); }
+  .tl-item.risk::before { background: var(--danger); border-color: var(--danger); }
+  .tl-date { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+  .tl-title { font-size: 0.95rem; font-weight: 600; margin: 0.15rem 0; }
+  .tl-desc { font-size: 0.85rem; color: var(--text-muted); }
+  .tl-tag {
+    display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.5rem;
+    border-radius: 4px; margin-top: 0.3rem; font-weight: 600;
+  }
+  .tl-tag.decided { background: #3fb95022; color: var(--accent2); }
+  .tl-tag.open { background: #d2992222; color: var(--warning); }
+  .tl-tag.deadline { background: #f8514922; color: var(--danger); }
+
+  /* Assumption cards */
+  .assumption { border-left: 3px solid; padding-left: 1rem; margin-bottom: 1.25rem; }
+  .assumption.valid { border-color: var(--accent2); }
+  .assumption.risky { border-color: var(--danger); }
+  .assumption.unknown { border-color: var(--warning); }
+  .assumption h4 { font-size: 0.9rem; }
+  .assumption p { font-size: 0.82rem; color: var(--text-muted); }
+  .assumption .tag {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 0.15rem;
+  }
+  .assumption.valid .tag { color: var(--accent2); }
+  .assumption.risky .tag { color: var(--danger); }
+  .assumption.unknown .tag { color: var(--warning); }
+
+  /* Capability matrix */
+  .cap-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .cap-table th {
+    text-align: center; padding: 0.6rem 0.4rem; color: var(--text-muted);
+    border-bottom: 2px solid var(--border); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+  }
+  .cap-table th:first-child { text-align: left; }
+  .cap-table td { text-align: center; padding: 0.6rem 0.4rem; border-bottom: 1px solid var(--border); }
+  .cap-table td:first-child { text-align: left; font-weight: 600; color: var(--text); white-space: nowrap; }
+  .cap-table .yes { color: var(--accent2); }
+  .cap-table .no { color: var(--text-muted); opacity: 0.3; }
+  .cap-table .partial { color: var(--warning); }
+  .cap-table tr:hover { background: #ffffff08; }
+
+  /* Suggestion cards */
+  .suggest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .suggest-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+  .suggest-card:hover { border-color: var(--accent); }
+  .suggest-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; }
+  .suggest-card p { font-size: 0.82rem; color: var(--text-muted); }
+  .suggest-card .type {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 0.5rem;
+  }
+  .suggest-card .type.diagram { color: var(--accent); }
+  .suggest-card .type.prompt { color: var(--accent3); }
+  .suggest-card .type.artifact { color: var(--accent4); }
+  .suggest-card .type.exercise { color: var(--accent5); }
+
+  .footer {
+    text-align: center; padding: 2rem; color: var(--text-muted);
+    font-size: 0.78rem; border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>AI <span>Workbench</span> Atlas</h1>
+  <p>Components, capabilities, seams, architectural choices, and assumptions — all in one view.</p>
+  <div class="badges">
+    <span class="badge blue">15 Docker services</span>
+    <span class="badge green">6 platform core</span>
+    <span class="badge purple">5 agents</span>
+    <span class="badge orange">6 data servers</span>
+    <span class="badge pink">2 deploy modes</span>
+  </div>
+</div>
+
+<nav id="nav">
+  <a href="#arch">Architecture</a>
+  <a href="#layers">Layers</a>
+  <a href="#seams">Seams</a>
+  <a href="#data-flow">Data Flow</a>
+  <a href="#capabilities">Capabilities</a>
+  <a href="#timeline">Timeline</a>
+  <a href="#assumptions">Assumptions</a>
+  <a href="#next">What's Next</a>
+</nav>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="arch">
+  <h2><span class="num">01</span> Component Architecture</h2>
+  <p class="subtitle">Big-box conceptual view. Each box is a functional layer, not an individual container. Arrows show the primary flow directions.</p>
+
+  <!-- Big-box CSS-only diagram -->
+  <div style="max-width:960px; margin: 0 auto 2rem;">
+
+    <!-- Row 1: User + UI -->
+    <div style="display:flex; gap:1.25rem; margin-bottom:1.25rem; align-items:stretch;">
+      <div style="flex:0 0 140px; display:flex; align-items:center; justify-content:center;">
+        <div style="text-align:center;">
+          <div style="font-size:2.5rem; line-height:1;">&#9673;</div>
+          <div style="font-size:0.85rem; font-weight:600; margin-top:0.25rem;">User</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">browser or CLI</div>
+        </div>
+      </div>
+      <div style="flex:0 0 20px; display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:1.2rem;">&#10132;</div>
+      <div class="arch-box" style="flex:1; background:linear-gradient(135deg, #16213e, #1a1a2e); border:2px solid #58a6ff55; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.75rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent);">ACCESS LAYER</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">always on</div>
+        </div>
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:0.6rem 1rem; flex:1; min-width:140px;">
+            <div style="font-weight:600; font-size:0.88rem;">Open WebUI</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Chat frontend with MCP tool connections</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:0.6rem 1rem; flex:1; min-width:140px;">
+            <div style="font-weight:600; font-size:0.88rem;">Open Notebook</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Research UI (optional profile)</div>
+          </div>
+          <div style="background:#0d1117; border:1px dashed var(--border); border-radius:8px; padding:0.6rem 1rem; flex:1; min-width:140px; opacity:0.6;">
+            <div style="font-weight:600; font-size:0.88rem;">Laptop CLI</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Future: terminal client</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow down -->
+    <div style="display:flex; justify-content:center; margin:-0.25rem 0; padding-left:160px;">
+      <div style="color:var(--accent); font-size:1.5rem; line-height:1;">&#10515;</div>
+    </div>
+
+    <!-- Row 2: Ingress + Platform -->
+    <div style="display:flex; gap:1.25rem; margin-bottom:1.25rem; align-items:stretch;">
+      <div class="arch-box" style="flex:1; background:linear-gradient(135deg, #1c2333, #161b22); border:2px solid #d2a8ff44; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent3);">INGRESS</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Traefik + Caddy</div>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">
+          *.localhost host routing<br/>
+          /mcp/&lt;slug&gt;/* tool routing<br/>
+          /catalog/ discovery<br/>
+          Generated from manifests
+        </div>
+      </div>
+      <div class="arch-box" style="flex:1.6; background:linear-gradient(135deg, #1a1a2e, #0d1117); border:2px solid #58a6ff44; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent);">PLATFORM CORE</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">always on</div>
+        </div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:120px;">
+            <div style="font-weight:600; font-size:0.82rem;">LiteLLM</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Model gateway for all consumers</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:120px;">
+            <div style="font-weight:600; font-size:0.82rem;">Phoenix</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">OTEL trace collector</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:120px;">
+            <div style="font-weight:600; font-size:0.82rem;">Chroma + Postgres</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Vectors, state</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow down -->
+    <div style="display:flex; justify-content:center; margin:-0.25rem 0;">
+      <div style="color:var(--accent); font-size:1.5rem; line-height:1;">&#10515;</div>
+    </div>
+
+    <!-- Row 3: Agents -->
+    <div style="margin-bottom:1.25rem;">
+      <div class="arch-box" style="background:linear-gradient(135deg, #1a1040, #161b22); border:2px solid #d2a8ff44; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.75rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent3);">AGENT LAYER</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">5 agents &middot; ReAct loops &middot; profile: tools</div>
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">
+          Each agent is an MCP server that runs a ReAct reasoning loop via LiteLLM and calls data servers as tools.
+        </div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:130px;">
+            <div style="font-weight:600; font-size:0.82rem;">Specialist Agents <span style="font-size:0.72rem; color:var(--text-muted); font-weight:400">&times;3</span></div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">LDAP, ServiceNow, Sightline<br/>Each owns one data source</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid #d2a8ff33; border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:130px;">
+            <div style="font-weight:600; font-size:0.82rem; color:var(--accent3);">Enrichment Agent</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Cross-source orchestrator<br/>Delegates to specialists + sandbox</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:130px;">
+            <div style="font-weight:600; font-size:0.82rem;">Code Agent</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Standalone code executor<br/>Wraps sandbox in ReAct</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two arrows down, forking -->
+    <div style="display:flex; justify-content:center; gap:12rem; margin:-0.25rem 0;">
+      <div style="color:var(--accent2); font-size:1.5rem; line-height:1; text-align:center;">
+        &#10515;
+        <div style="font-size:0.65rem; color:var(--text-muted);">MCP</div>
+      </div>
+      <div style="color:var(--accent4); font-size:1.5rem; line-height:1; text-align:center;">
+        &#10515;
+        <div style="font-size:0.65rem; color:var(--text-muted);">HTTP</div>
+      </div>
+    </div>
+
+    <!-- Row 4: Data Servers + Compute side by side -->
+    <div style="display:flex; gap:1.25rem; margin-bottom:1.25rem; align-items:stretch;">
+      <div class="arch-box" style="flex:1.2; background:linear-gradient(135deg, #0d2a1a, #161b22); border:2px solid #3fb95044; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent2);">DATA SERVERS</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">6 MCP servers &middot; read-only</div>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.5rem;">
+          Stateless MCP wrappers over enterprise APIs. Each publishes an <code style="font-size:0.78rem">mcp-tool.yaml</code> manifest that drives config generation.
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">ldap-mcp</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">servicenow-mcp</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">sightline-mcp</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">magic-fetch</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">mcp-time</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">mcp-fetch</span>
+        </div>
+      </div>
+      <div class="arch-box" style="flex:0.8; background:linear-gradient(135deg, #2a1a0d, #161b22); border:2px solid #f0883e44; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--accent4);">COMPUTE SANDBOX</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">deterministic path</div>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.5rem;">
+          LLM writes code, sandbox runs it. No LLM in the execution loop. mcpo bridges MCP&rarr;REST so pandas can call enterprise APIs.
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">Open Terminal</span>
+          <span style="background:#0d1117; border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.6rem; font-size:0.75rem;">mcpo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow down -->
+    <div style="display:flex; justify-content:center; margin:-0.25rem 0;">
+      <div style="color:var(--text-muted); font-size:1.5rem; line-height:1;">&#10515;</div>
+    </div>
+
+    <!-- Row 5: External -->
+    <div>
+      <div class="arch-box" style="background:linear-gradient(135deg, #1a1025, #161b22); border:2px solid #30363d; border-radius:14px; padding:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+          <div style="font-size:1.05rem; font-weight:700; color:var(--text-muted);">EXTERNAL WORLD</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">outbound only</div>
+        </div>
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:130px;">
+            <div style="font-weight:600; font-size:0.82rem;">LLM Providers</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">OpenAI, Anthropic, Azure OpenAI<br/>via LiteLLM gateway</div>
+          </div>
+          <div style="background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:0.5rem 0.8rem; flex:1; min-width:130px;">
+            <div style="font-weight:600; font-size:0.82rem;">Enterprise Systems</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">AD LDAP, ServiceNow, Sightline<br/>via data server adapters</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Observability side-bar -->
+    <div style="margin-top:1.5rem; border:1px dashed var(--border); border-radius:10px; padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem; background:#f8514905;">
+      <div style="font-size:1.5rem; color:var(--accent4);">&#9673;</div>
+      <div>
+        <div style="font-weight:600; font-size:0.88rem;">Observability (cross-cutting)</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Phoenix collects OpenInference spans from all agents + LiteLLM + Open WebUI. Dashed because it's a telemetry sidecar, not in the request path.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3><span class="dot blue"></span> Key Idea: Manifest-Driven</h3>
+      <p>Each data server publishes one <code>mcp-tool.yaml</code>. bootstrap.py reads them and generates all routing rules, catalog entries, and UI connections. Adding a tool = writing one YAML file.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot purple"></span> Key Idea: Agent-as-Tool</h3>
+      <p>Agents are MCP servers that themselves call other MCP servers. The enrichment-agent delegates to specialist agents — it never touches data servers directly. Two-level agentic system.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot orange"></span> Key Idea: Two Paths</h3>
+      <p>LLM-driven path: agent reasons step-by-step. Deterministic path: LLM writes code once, sandbox executes it row-by-row via REST. Both paths use the same data servers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="layers">
+  <h2><span class="num">02</span> Layer Model</h2>
+  <p class="subtitle">The system as concentric layers — outer layers depend inward, never the reverse.</p>
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+graph LR
+    subgraph L1["Layer 1 — EXTERNAL"]
+        direction TB
+        E1["OpenAI / Anthropic / Azure"]
+        E2["AD LDAP"]
+        E3["ServiceNow"]
+        E4["Sightline"]
+    end
+
+    subgraph L2["Layer 2 — PLATFORM CORE"]
+        direction TB
+        P1["LiteLLM — model seam"]
+        P2["Phoenix — observability"]
+        P3["Chroma — vectors"]
+        P4["Caddy — routing & catalog"]
+    end
+
+    subgraph L3["Layer 3 — DATA SERVERS"]
+        direction TB
+        D1["ldap-mcp"]
+        D2["servicenow-mcp"]
+        D3["sightline-mcp"]
+        D4["magic-fetch · mcp-time · mcp-fetch"]
+    end
+
+    subgraph L4["Layer 4 — COMPUTE"]
+        direction TB
+        C1["Open Terminal — sandbox"]
+        C2["mcpo — MCP→REST bridge"]
+    end
+
+    subgraph L5["Layer 5 — AGENTS"]
+        direction TB
+        A1["ldap-agent"]
+        A2["servicenow-agent"]
+        A3["sightline-agent"]
+        A4["code-agent"]
+        A5["enrichment-agent — cross-source"]
+    end
+
+    subgraph L6["Layer 6 — UI / ACCESS"]
+        direction TB
+        U1["Open WebUI — chat"]
+        U2["Open Notebook — research"]
+        U3["Future: Laptop CLI"]
+        U4["Catalog — /catalog"]
+    end
+
+    L6 --> L5 --> L4 --> L3 --> L1
+    L5 --> L2
+    L6 --> L2
+    L4 --> L3
+    L3 --> L1
+    L2 --> L1
+    </pre>
+  </div>
+  <div class="grid-3">
+    <div class="card">
+      <h3><span class="dot blue"></span> Platform Core</h3>
+      <ul>
+        <li>LiteLLM: single model egress for all consumers</li>
+        <li>Phoenix: unified trace sink (OpenInference)</li>
+        <li>Caddy: slug-based MCP routing + generated catalog</li>
+        <li>Chroma: RAG vector store for Open WebUI</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="dot green"></span> Data Servers (Adapters)</h3>
+      <ul>
+        <li>Stateless MCP wrappers over enterprise APIs</li>
+        <li>Read-only by design (write-gated until policy layer)</li>
+        <li>Each publishes mcp-tool.yaml manifest</li>
+        <li>Transport: HTTP streamable-http</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="dot purple"></span> Agents (Brains)</h3>
+      <ul>
+        <li>ReAct loop: reason → tool-call → observe → repeat</li>
+        <li>Each backed by LiteLLM for LLM reasoning</li>
+        <li>enrichment-agent delegates to specialist agents</li>
+        <li>Domain logic lives in system prompts only</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="seams">
+  <h2><span class="num">03</span> Architectural Seams</h2>
+  <p class="subtitle">The six load-bearing integration points. Change one of these, and everything downstream shifts.</p>
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+graph LR
+    subgraph GENERATION["GENERATION SEAM"]
+        YAML["mcp-tool.yaml\n(per service)"]
+        BOOT["bootstrap.py"]
+        YAML --> BOOT
+        BOOT --> G1["config/litellm/config.yaml"]
+        BOOT --> G2["config/caddy/Caddyfile"]
+        BOOT --> G3["config/catalog/catalog.json"]
+        BOOT --> G4["config/openwebui/\ntool-connections.yaml"]
+    end
+
+    subgraph MODEL_SEAM["MODEL SEAM"]
+        LLM["LiteLLM :4000"]
+        LLM --- M1["aliases: openai-fast\nanthropic-strong\nazure-fast ..."]
+        LLM --- M2["All agents use it\nAll UIs use it\nFuture CLI uses it"]
+    end
+
+    subgraph ROUTING_SEAM["ROUTING SEAM"]
+        CDY["Caddy :8090"]
+        CDY --- R1["/mcp/&lt;slug&gt;/*\ngenerated from manifests"]
+        CDY --- R2["/catalog/ \n/health/ \n/sandbox/files/*"]
+    end
+
+    subgraph OBSERVE_SEAM["OBSERVABILITY SEAM"]
+        PHX["Phoenix :6006"]
+        PHX --- O1["OpenInference spans\nfrom every agent"]
+        PHX --- O2["LiteLLM request\ntraces"]
+    end
+
+    subgraph BRIDGE_SEAM["BRIDGE SEAM"]
+        MCP["mcpo :8000"]
+        MCP --- B1["MCP → REST\nfor sandbox code"]
+        MCP --- B2["Enables deterministic\nPython data pipelines"]
+    end
+
+    subgraph SANDBOX_SEAM["SANDBOX SEAM"]
+        OTR["Open Terminal"]
+        OTR --- S1["Sandboxed Python/shell\nfile upload/download"]
+        OTR --- S2["LLM writes code,\nsandbox executes it\ndeterministically"]
+    end
+    </pre>
+  </div>
+
+  <table class="seam-table">
+    <thead>
+      <tr>
+        <th>Seam</th>
+        <th>Component</th>
+        <th>What it decouples</th>
+        <th>Why it matters</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="seam-name">Generation</td>
+        <td>bootstrap.py + mcp-tool.yaml</td>
+        <td class="seam-what">Service declaration → runtime config</td>
+        <td class="seam-why">Add a new MCP tool by writing one YAML file. Four artifacts regenerate automatically.</td>
+      </tr>
+      <tr>
+        <td class="seam-name">Model</td>
+        <td>LiteLLM :4000</td>
+        <td class="seam-what">Consumers → LLM providers</td>
+        <td class="seam-why">Swap providers (OpenAI↔Anthropic↔Azure) without touching agent code. Cost tracking, rate limiting, fallback routing all centralized.</td>
+      </tr>
+      <tr>
+        <td class="seam-name">Routing</td>
+        <td>Caddy :8090</td>
+        <td class="seam-what">Callers → MCP service implementations</td>
+        <td class="seam-why">URL stability: /mcp/ldap-agent/* works regardless of container port, network, or scaling changes.</td>
+      </tr>
+      <tr>
+        <td class="seam-name">Observability</td>
+        <td>Phoenix :6006</td>
+        <td class="seam-what">Service instrumentation → trace analysis</td>
+        <td class="seam-why">All agents emit OpenInference spans. Debug reasoning chains, measure latency, track tool-call patterns from one dashboard.</td>
+      </tr>
+      <tr>
+        <td class="seam-name">Bridge</td>
+        <td>mcpo :8000</td>
+        <td class="seam-what">LLM-generated code → enterprise MCP tools</td>
+        <td class="seam-why">Sandbox Python calls REST, not MCP. This is the key enabler for deterministic row-by-row enrichment without an LLM in the loop.</td>
+      </tr>
+      <tr>
+        <td class="seam-name">Sandbox</td>
+        <td>Open Terminal</td>
+        <td class="seam-what">LLM reasoning → code execution</td>
+        <td class="seam-why">LLM writes pandas code, sandbox runs it. Composition over tabular data is deterministic and auditable.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="data-flow">
+  <h2><span class="num">04</span> Two Data Paths</h2>
+  <p class="subtitle">The system has two fundamentally different execution modes — understanding this distinction is critical.</p>
+  <div class="grid-2">
+    <div class="card highlight">
+      <h3><span class="dot blue"></span> Path A: LLM-Driven (Agent Loop)</h3>
+      <p>User asks a question → agent reasons → calls tools → synthesizes answer. Every step involves the LLM.</p>
+    </div>
+    <div class="card highlight">
+      <h3><span class="dot green"></span> Path B: Deterministic (Code Pipeline)</h3>
+      <p>LLM writes Python code once → sandbox executes it row-by-row against enterprise APIs via REST. No LLM in the execution loop.</p>
+    </div>
+  </div>
+  <div class="mermaid-wrap" style="margin-top:1.5rem">
+    <pre class="mermaid">
+graph TB
+    USER["User asks question\nor uploads CSV"]
+
+    subgraph PATH_A["PATH A — LLM-Driven"]
+        A1["Open WebUI\nroutes to agent"]
+        A2["Agent calls LiteLLM\n(reasoning step)"]
+        A3["Agent calls data server\n(tool use)"]
+        A4["Agent observes result\nand reasons again"]
+        A5["Agent returns\nfinal answer"]
+        A1 --> A2 --> A3 --> A4 --> A2
+        A4 -->|"done"| A5
+    end
+
+    subgraph PATH_B["PATH B — Deterministic"]
+        B1["Open WebUI routes\nto code-agent"]
+        B2["code-agent calls LiteLLM\n(write Python code)"]
+        B3["Python code sent to\nOpen Terminal sandbox"]
+        B4["Sandbox calls mcpo\n(REST, row by row)"]
+        B5["mcpo calls data servers\n(MCP protocol)"]
+        B6["Results returned as\nDataFrame / Excel"]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6
+    end
+
+    USER --> A1
+    USER --> B1
+
+    style PATH_A fill:#0d2137,stroke:#58a6ff
+    style PATH_B fill:#0d2a1a,stroke:#3fb950
+    </pre>
+  </div>
+  <div class="card" style="margin-top:1rem">
+    <h3>Why two paths?</h3>
+    <p>Path A is great for questions: "Who reports to Jane?" — the LLM reasons about what to look up. Path B is for bulk operations: "Enrich this 500-row CSV with LDAP department and ServiceNow ticket counts" — the LLM writes a pandas script once, then the sandbox executes it deterministically. This is the core insight behind Open Terminal: LLM composition over tabular data.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="capabilities">
+  <h2><span class="num">05</span> Capability Matrix</h2>
+  <p class="subtitle">What each service provides and depends on.</p>
+  <div style="overflow-x:auto">
+    <table class="cap-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>MCP Server</th>
+          <th>LLM Reasoning</th>
+          <th>Tool Calls</th>
+          <th>Code Exec</th>
+          <th>OTEL Traces</th>
+          <th>External API</th>
+          <th>Delegates</th>
+          <th>Profile</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ldap-mcp</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="yes">LDAP</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>servicenow-mcp</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="yes">SNOW</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>sightline-mcp</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="yes">Sightline</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>magic-fetch</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="yes">Sightline</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>mcp-time</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>mcp-fetch</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>ldap-agent</td>
+          <td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">ldap-mcp</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>servicenow-agent</td>
+          <td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">snow-mcp</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>sightline-agent</td>
+          <td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">sight-mcp</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>code-agent</td>
+          <td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">terminal</td><td class="partial">via OT</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>enrichment-agent</td>
+          <td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">all agents</td><td class="partial">via OT</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="yes">&#10003;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>Open Terminal</td>
+          <td class="partial">REST</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="yes">&#10003;</td>
+          <td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>mcpo</td>
+          <td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="no">&#8211;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>tools</td>
+        </tr>
+        <tr>
+          <td>Open WebUI</td>
+          <td class="no">&#8211;</td><td class="partial">pass-thru</td><td class="yes">via Caddy</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="no">&#8211;</td><td class="no">&#8211;</td><td>core</td>
+        </tr>
+        <tr>
+          <td>LiteLLM</td>
+          <td class="no">&#8211;</td><td class="no">gateway</td><td class="no">&#8211;</td><td class="no">&#8211;</td>
+          <td class="yes">&#10003;</td><td class="yes">3 providers</td><td class="no">&#8211;</td><td>core</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="timeline">
+  <h2><span class="num">06</span> Decision Timeline & Roadmap</h2>
+  <p class="subtitle">What's been decided, what's pending, and what has a deadline.</p>
+  <div class="grid-2">
+    <div>
+      <div class="timeline">
+        <div class="tl-item done">
+          <div class="tl-date">2026-04-24 — Architectural Review</div>
+          <div class="tl-title">6 Committed Decisions Locked</div>
+          <div class="tl-desc">LangGraph migration path chosen. Single repo + two deploy modes (Compose + Helm). LiteLLM as universal model seam. Read-only adapters until policy layer exists. WebUI + CLI both first-class.</div>
+          <span class="tl-tag decided">DECIDED</span>
+        </div>
+        <div class="tl-item done">
+          <div class="tl-date">2026-04-26 — Paper Spike</div>
+          <div class="tl-title">Paper-Derived Constraints Added</div>
+          <div class="tl-desc">Auto-mode classifier as named policy component. Hooks/skills/plugins reserved for laptop CLI. Layer compaction for long-running workflows. Worktree-per-job spike before Pod-per-execution.</div>
+          <span class="tl-tag decided">DECIDED</span>
+        </div>
+        <div class="tl-item current">
+          <div class="tl-date">2026-05-07 — Today</div>
+          <div class="tl-title">Current State</div>
+          <div class="tl-desc">15 services running. 5 agents operational. Hand-rolled ReAct loops. No auth on MCP endpoints. Module-level session globals. Single-user sandbox.</div>
+          <span class="tl-tag open">WORKING STATE</span>
+        </div>
+        <div class="tl-item future">
+          <div class="tl-date">Next — Pending</div>
+          <div class="tl-title">LangGraph Migration</div>
+          <div class="tl-desc">Replace hand-rolled ReAct loops with LangGraph. Enables durability, checkpointing, and human-in-the-loop. Required before k8s multi-user.</div>
+          <span class="tl-tag open">PLANNED</span>
+        </div>
+        <div class="tl-item future">
+          <div class="tl-date">Next — Pending</div>
+          <div class="tl-title">Policy Layer</div>
+          <div class="tl-desc">Command allowlist, approval flows, write-gating. Prerequisite for enabling write operations on adapters.</div>
+          <span class="tl-tag open">PLANNED</span>
+        </div>
+        <div class="tl-item risk">
+          <div class="tl-date">2026-06-24 — Hard Deadline</div>
+          <div class="tl-title">Agentregistry: Earn or Delete</div>
+          <div class="tl-desc">Agentregistry must demonstrate concrete value by this date or be removed from the project. Currently optional profile.</div>
+          <span class="tl-tag deadline">DEADLINE</span>
+        </div>
+        <div class="tl-item future">
+          <div class="tl-date">Future — Pending</div>
+          <div class="tl-title">K8s Multi-User Deploy</div>
+          <div class="tl-desc">Helm charts, per-user pod isolation, per-user sandbox, session-scoped state (no globals), cost budgets per user.</div>
+          <span class="tl-tag open">FUTURE</span>
+        </div>
+        <div class="tl-item future">
+          <div class="tl-date">Future — Pending</div>
+          <div class="tl-title">Laptop CLI</div>
+          <div class="tl-desc">Claude-Code-style terminal against the workbench's MCP tool rack + LiteLLM gateway. Second first-class access point alongside WebUI.</div>
+          <span class="tl-tag open">FUTURE</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:1.25rem">
+        <h3><span class="dot green"></span> What's Decided (Load-Bearing)</h3>
+        <ul>
+          <li>LangGraph/LangChain as the agent framework</li>
+          <li>Single repo, two deploy modes (Compose + Helm)</li>
+          <li>Adapters read-only until policy layer ships</li>
+          <li>LiteLLM is the model seam everywhere</li>
+          <li>WebUI + laptop CLI both first-class</li>
+          <li>Agentregistry must prove value by 2026-06-24</li>
+          <li>Auto-mode classifier is a named policy component</li>
+          <li>Hooks/skills/plugins reserved for laptop CLI</li>
+          <li>Worktree-per-job spike before Pod-per-execution</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="dot orange"></span> What's Still Open</h3>
+        <ul>
+          <li>When to start the LangGraph migration</li>
+          <li>Policy layer design (allowlist, approvals, audit)</li>
+          <li>Per-user isolation model (pod boundaries, sandbox sharing)</li>
+          <li>Context compaction strategy for long-running workflows</li>
+          <li>Dynamic environment context discovery mechanism</li>
+          <li>Agent-level safety guardrails beyond prompts</li>
+          <li>Agentregistry's role (may be deleted)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="assumptions">
+  <h2><span class="num">07</span> Assumptions & Risks</h2>
+  <p class="subtitle">What the architecture currently assumes, and where those assumptions break.</p>
+  <div class="grid-2">
+    <div>
+      <h3 style="margin-bottom:1rem; font-size:0.95rem; color:var(--accent2)">Active Assumptions</h3>
+      <div class="assumption valid">
+        <div class="tag">Holding</div>
+        <h4>Single user, single host</h4>
+        <p>Module-level globals, shared sandbox, no auth on MCP endpoints. Works today because only one user is on the system.</p>
+      </div>
+      <div class="assumption valid">
+        <div class="tag">Holding</div>
+        <h4>LiteLLM as universal model seam</h4>
+        <p>All consumers (agents, UIs, future CLI) route through LiteLLM. Provider-switching, cost tracking, and fallback all centralized.</p>
+      </div>
+      <div class="assumption valid">
+        <div class="tag">Holding</div>
+        <h4>Manifest-driven generation</h4>
+        <p>One mcp-tool.yaml per service → bootstrap generates 4 config artifacts. Adding a tool is a YAML file, not a config change in 4 places.</p>
+      </div>
+      <div class="assumption valid">
+        <div class="tag">Holding</div>
+        <h4>Read-only adapters are safe without auth</h4>
+        <p>No write operations exposed. Data servers only query enterprise systems. Risk is contained to information disclosure within the private network.</p>
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-bottom:1rem; font-size:0.95rem; color:var(--danger)">Known Risks</h3>
+      <div class="assumption risky">
+        <div class="tag">Breaks at scale</div>
+        <h4>Module-level session globals</h4>
+        <p>Agents use module-level variables for MCP JSON-RPC ID tracking. Concurrent requests will collide. Must fix for k8s multi-user.</p>
+      </div>
+      <div class="assumption risky">
+        <div class="tag">Breaks at scale</div>
+        <h4>No MCP endpoint authentication</h4>
+        <p>All services have <code>auth: mode: none</code>. Internal Docker network is the only boundary. k8s network policies won't be enough.</p>
+      </div>
+      <div class="assumption risky">
+        <div class="tag">Breaks at scale</div>
+        <h4>Shared Open Terminal sandbox</h4>
+        <p>All users share one sandbox container. No per-user file isolation. User A can see User B's uploaded files.</p>
+      </div>
+      <div class="assumption unknown">
+        <div class="tag">Unknown</div>
+        <h4>ReAct loop reliability</h4>
+        <p>Hand-rolled ReAct loops lack retry, timeout, and checkpoint semantics. LangGraph migration is planned but not scheduled.</p>
+      </div>
+      <div class="assumption unknown">
+        <div class="tag">Unknown</div>
+        <h4>Agentregistry value proposition</h4>
+        <p>Optional profile with 3 containers. Must prove value by 2026-06-24 or be removed. Currently disconnected from main data flow.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="next">
+  <h2><span class="num">08</span> Suggested Artifacts & Prompts</h2>
+  <p class="subtitle">Additional visualizations and analysis that would deepen understanding of the project.</p>
+  <div class="suggest-grid">
+    <div class="suggest-card">
+      <div class="type diagram">Diagram</div>
+      <h4>Network Topology Map</h4>
+      <p>Docker network boundaries (agents, tools, proxy) with exact container membership. Shows what can talk to what at the network level — critical for understanding the security boundary.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type diagram">Diagram</div>
+      <h4>Bootstrap Generation Flow</h4>
+      <p>Detailed trace of what bootstrap.py reads vs. writes. Input manifests → template logic → output artifacts. Reveals the full "blast radius" of changing one mcp-tool.yaml.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type diagram">Diagram</div>
+      <h4>Enrichment-Agent Delegation Graph</h4>
+      <p>Sequence diagram showing how enrichment-agent orchestrates specialist agents. Shows the cross-agent MCP call chain, including the dual path (LLM-driven queries vs. deterministic code-agent pipeline).</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type prompt">Prompt</div>
+      <h4>"Walk me through a CSV enrichment"</h4>
+      <p>End-to-end trace of a user uploading a CSV and getting it enriched. Covers: file upload, code generation, sandbox execution, mcpo bridge, data server calls, result download.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type prompt">Prompt</div>
+      <h4>"What breaks when we add a second user?"</h4>
+      <p>Stress-test the single-user assumptions. Systematically identifies every global, shared resource, and missing auth boundary that would fail with concurrent users.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type prompt">Prompt</div>
+      <h4>"Diff the Compose and future Helm deploy"</h4>
+      <p>Side-by-side comparison of what changes between the single-host Compose stack and the k8s Helm target. Services, networks, storage, auth, isolation.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type artifact">Artifact</div>
+      <h4>Dependency Matrix (who calls whom)</h4>
+      <p>A heatmap showing every service-to-service dependency. Highlights the enrichment-agent as the highest-fan-out component and LiteLLM as the highest-fan-in.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type artifact">Artifact</div>
+      <h4>Cost Model Sketch</h4>
+      <p>Estimate LLM token spend per operation type (single query vs. 500-row enrichment). Shows why the deterministic path matters for cost — one code-gen call vs. 500 agent reasoning loops.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type exercise">Exercise</div>
+      <h4>"Add a new data source" walkthrough</h4>
+      <p>Step-by-step guide: write mcp-tool.yaml → implement MCP server → bootstrap → wire agent → test via WebUI. Proves the manifest-driven generation seam works.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type exercise">Exercise</div>
+      <h4>"Kill one seam" thought experiment</h4>
+      <p>For each of the 6 seams: what happens if you remove it? What couples? What breaks? Reveals which seams are load-bearing vs. convenience.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type prompt">Prompt</div>
+      <h4>"Trace a Phoenix span end-to-end"</h4>
+      <p>Follow one user query from Open WebUI → agent → LiteLLM → data server, and show what each hop records in Phoenix. Reveals observability gaps.</p>
+    </div>
+    <div class="suggest-card">
+      <div class="type artifact">Artifact</div>
+      <h4>Migration Checklist: ReAct → LangGraph</h4>
+      <p>Per-agent inventory of what changes: state management, tool registration, prompt format, error handling, checkpoint storage. Sizes the LangGraph migration.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  AI Workbench Atlas — generated 2026-05-07 — open in any browser
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f6feb',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#30363d',
+      lineColor: '#58a6ff',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#0d1117',
+      fontSize: '14px'
+    },
+    flowchart: { curve: 'basis', padding: 15 }
+  });
+
+  // Sticky nav highlight
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

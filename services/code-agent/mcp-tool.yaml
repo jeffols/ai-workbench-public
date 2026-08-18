@@ -1,0 +1,18 @@
+slug: code-agent
+name: Code Execution Agent
+owner: platform
+description: >-
+  Execute data processing tasks by writing and running Python code in an
+  isolated sandbox.  Supports pandas, numpy, matplotlib for CSV/Excel
+  processing, analysis, and charting.
+transport: http
+port: 8080
+mcp_path: /mcp
+health_path: /healthz
+auth:
+  mode: none
+risk_tier: internal
+tags: [code, execution, data, python, agent]
+depends_on_platform:
+  - litellm
+  - phoenix

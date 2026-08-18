@@ -1,0 +1,43 @@
+# Compose fragment for code-agent MCP tool.
+# Included by the root docker-compose.yml via Compose `include`.
+
+services:
+  code-agent:
+    build: .
+    profiles: [tools]
+    restart: unless-stopped
+    networks: [agents, tools]
+    expose:
+      - "8080"
+    depends_on:
+      litellm:
+        condition: service_healthy
+      open-terminal:
+        condition: service_healthy
+      phoenix:
+        condition: service_started
+    environment:
+      LITELLM_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      AGENT_MODEL: ${AGENT_MODEL}
+      CODE_SANDBOX_URL: http://open-terminal:8000
+      TERMINAL_API_KEY: ${OPEN_TERMINAL_API_KEY}
+      PUBLIC_BASE_URL: http://files.localhost
+      MCPO_URL: http://mcpo:8000
+      OTEL_SERVICE_NAME: code-agent
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+    volumes:
+      - ../../config/workbench-tools.json:/opt/workbench/tools.json:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5

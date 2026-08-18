@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Workbench — Deep Artifacts</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d2a8ff;
+    --accent4: #f0883e;
+    --accent5: #f778ba;
+    --danger: #f85149;
+    --warning: #d29922;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    line-height: 1.6;
+  }
+  .hero {
+    text-align: center; padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+  }
+  .hero h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--text-muted); font-size: 1rem; margin-top: 0.5rem; max-width: 700px; margin-inline: auto; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; gap: 0; overflow-x: auto; padding: 0 1rem;
+  }
+  nav a {
+    color: var(--text-muted); text-decoration: none; padding: 0.85rem 1.25rem;
+    font-size: 0.85rem; font-weight: 500; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+  }
+  nav a:hover, nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+  section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  section:last-child { border-bottom: none; }
+  h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  h2 .num { color: var(--accent); font-size: 1rem; margin-right: 0.5rem; }
+  h3 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .mermaid-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 2rem; overflow-x: auto; margin-bottom: 1.5rem;
+  }
+  .mermaid { text-align: center; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem 1.5rem;
+  }
+  .card h3 { font-size: 1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .card p, .card li { color: var(--text-muted); font-size: 0.88rem; }
+  .card ul { list-style: none; padding: 0; }
+  .card li { padding: 0.2rem 0; }
+  .card li::before { content: "→ "; color: var(--accent); }
+  .card.highlight { border-color: var(--accent); box-shadow: 0 0 20px #58a6ff11; }
+  .card.green-hl { border-color: var(--accent2); box-shadow: 0 0 20px #3fb95011; }
+  .card.purple-hl { border-color: var(--accent3); box-shadow: 0 0 20px #d2a8ff11; }
+  .card.orange-hl { border-color: var(--accent4); box-shadow: 0 0 20px #f0883e11; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot.blue { background: var(--accent); }
+  .dot.green { background: var(--accent2); }
+  .dot.purple { background: var(--accent3); }
+  .dot.orange { background: var(--accent4); }
+  .dot.pink { background: var(--accent5); }
+  .dot.red { background: var(--danger); }
+
+  /* Heatmap */
+  .heatmap-container { overflow-x: auto; }
+  .heatmap { border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+  .heatmap th {
+    padding: 0.5rem 0.6rem; font-weight: 600; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--border); color: var(--text-muted);
+  }
+  .heatmap th.rotate { writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); min-width: 2.2rem; }
+  .heatmap td { padding: 0.4rem 0.6rem; text-align: center; border-bottom: 1px solid #1c222d; }
+  .heatmap td:first-child { text-align: left; font-weight: 600; color: var(--text); position: sticky; left: 0; background: var(--surface); z-index: 1; }
+  .heatmap tr:hover { background: #ffffff06; }
+  .heatmap .c0 { color: #21262d; } /* no dep */
+  .heatmap .c1 { color: var(--accent2); } /* calls */
+  .heatmap .c2 { color: var(--accent); } /* heavy */
+  .heatmap .c3 { color: var(--accent3); } /* delegates */
+  .heatmap .c4 { color: var(--accent4); } /* telemetry */
+  .heatmap .self { color: #21262d; }
+
+  /* Span trace */
+  .span-trace { font-size: 0.82rem; }
+  .span {
+    border-left: 3px solid; padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+    margin-left: 0; background: var(--surface); border-radius: 0 8px 8px 0;
+    position: relative;
+  }
+  .span .span { margin-left: 1.5rem; }
+  .span .span .span { margin-left: 1.5rem; }
+  .span .span .span .span { margin-left: 1.5rem; }
+  .span.agent { border-color: var(--accent3); }
+  .span.chain { border-color: var(--accent); }
+  .span.llm { border-color: var(--accent2); }
+  .span.tool { border-color: var(--accent4); }
+  .span.gap { border-color: var(--danger); border-style: dashed; background: #f8514908; }
+  .span-name { font-weight: 700; font-size: 0.85rem; }
+  .span-kind { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.5rem; }
+  .span.agent .span-kind { color: var(--accent3); }
+  .span.chain .span-kind { color: var(--accent); }
+  .span.llm .span-kind { color: var(--accent2); }
+  .span.tool .span-kind { color: var(--accent4); }
+  .span.gap .span-kind { color: var(--danger); }
+  .span-attrs { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; }
+  .span-attrs code {
+    background: #0d1117; padding: 0.1rem 0.4rem; border-radius: 3px;
+    font-size: 0.76rem; color: var(--text);
+  }
+  .span-time { position: absolute; right: 0.75rem; top: 0.75rem; font-size: 0.72rem; color: var(--text-muted); }
+
+  /* Network topology */
+  .net-zone {
+    border: 2px solid; border-radius: 12px; padding: 1.25rem;
+    margin-bottom: 1.25rem; position: relative;
+  }
+  .net-zone.agents-net { border-color: #58a6ff44; background: #58a6ff08; }
+  .net-zone.tools-net { border-color: #3fb95044; background: #3fb95008; }
+  .net-zone.proxy-net { border-color: #d2a8ff44; background: #d2a8ff08; }
+  .net-zone.host-net { border-color: #f0883e44; background: #f0883e08; }
+  .net-label {
+    position: absolute; top: -0.7rem; left: 1rem;
+    background: var(--bg); padding: 0 0.5rem;
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .net-zone.agents-net .net-label { color: var(--accent); }
+  .net-zone.tools-net .net-label { color: var(--accent2); }
+  .net-zone.proxy-net .net-label { color: var(--accent3); }
+  .net-zone.host-net .net-label { color: var(--accent4); }
+  .node-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
+  .node {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 500;
+    display: flex; align-items: center; gap: 0.35rem;
+  }
+  .node .port { color: var(--text-muted); font-size: 0.7rem; }
+  .node.bridge { border-style: dashed; }
+  .node.exposed { border-color: var(--accent4); }
+
+  .legend { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; font-size: 0.78rem; color: var(--text-muted); }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-swatch { width: 18px; height: 10px; border-radius: 3px; border: 2px solid; }
+
+  .insight-box {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.25rem; margin-top: 1rem; font-size: 0.85rem;
+  }
+  .insight-box h4 { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.35rem; }
+  .insight-box p, .insight-box li { color: var(--text-muted); font-size: 0.82rem; }
+  .insight-box ul { list-style: none; padding: 0; }
+  .insight-box li { padding: 0.15rem 0; }
+  .insight-box li::before { content: "! "; color: var(--danger); font-weight: 700; }
+  .insight-box li.ok::before { content: "~ "; color: var(--accent2); }
+
+  .footer { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.78rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Deep <span>Artifacts</span></h1>
+  <p>Network topology, enrichment-agent delegation, dependency heatmap, and Phoenix span trace.</p>
+</div>
+
+<nav id="nav">
+  <a href="#network">Network Topology</a>
+  <a href="#delegation">Enrichment Delegation</a>
+  <a href="#dependency">Dependency Matrix</a>
+  <a href="#traces">Phoenix Span Trace</a>
+</nav>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ARTIFACT 1: NETWORK TOPOLOGY MAP                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="network">
+  <h2><span class="num">A1</span> Network Topology Map</h2>
+  <p class="subtitle">Docker network boundaries with exact container membership. Shows what can talk to what at the network level.</p>
+
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+graph TB
+    subgraph HOST["HOST — 127.0.0.1"]
+        direction LR
+        HP1["':80"]
+        HP2["':8080"]
+        HP3["':8090"]
+        HP4["':3000 via 8080"]
+        HP5["':4000"]
+        HP6["':5432"]
+        HP7["':8502"]
+        HP8["':8081"]
+    end
+
+    subgraph PROXY_NET["NETWORK: proxy  (external, shared across stacks)"]
+        TRAEFIK["traefik:v3\n*.localhost routing"]
+        CADDY_P["caddy\n(proxy member)"]
+    end
+
+    subgraph AGENTS_NET["NETWORK: agents  (platform + reasoning)"]
+        direction TB
+        CADDY_A["caddy :8090\nreverse proxy"]
+        LITELLM["litellm :4000\nmodel gateway"]
+        LITELLM_DB["litellm-db :5432\nPostgres"]
+        PHOENIX["phoenix :6006\nOTEL traces"]
+        CHROMA["chroma :8000\nvector store"]
+        OPENWEBUI["openwebui :8080\nchat UI"]
+        MCPO_A["mcpo :8000\nMCP→REST"]
+        OT_A["open-terminal :8000\nsandbox"]
+        LA_A["ldap-agent :8080"]
+        SA_A["servicenow-agent :8080"]
+        SLA_A["sightline-agent :8080"]
+        CA_A["code-agent :8080"]
+        EA_A["enrichment-agent :8080"]
+        ON["open-notebook :8502"]
+        SURREAL["surrealdb :8000"]
+        AGW["agentgateway :8081"]
+    end
+
+    subgraph TOOLS_NET["NETWORK: tools  (data servers + execution)"]
+        direction TB
+        CADDY_T["caddy\n(tools member)"]
+        PHOENIX_T["phoenix\n(tools member)"]
+        MCPO_T["mcpo\n(tools member)"]
+        OT_T["open-terminal\n(tools member)"]
+        LA_T["ldap-agent\n(tools member)"]
+        SA_T["servicenow-agent\n(tools member)"]
+        SLA_T["sightline-agent\n(tools member)"]
+        CA_T["code-agent\n(tools member)"]
+        EA_T["enrichment-agent\n(tools member)"]
+        LM["ldap-mcp :8000"]
+        SM["servicenow-mcp :8000"]
+        SLM["sightline-mcp :8000"]
+        MF["magic-fetch :8000"]
+        MT["mcp-time :8000"]
+        MFETCH["mcp-fetch :8000"]
+        AR["agentregistry :8080"]
+        RDB["registry-db"]
+        AGW_T["agentgateway\n(tools member)"]
+    end
+
+    HP1 --- TRAEFIK
+    HP2 --- TRAEFIK
+    HP3 --- CADDY_A
+    HP4 --- OPENWEBUI
+    HP5 --- LITELLM
+    HP6 --- LITELLM_DB
+    HP7 --- ON
+    HP8 --- AGW
+
+    TRAEFIK -->|"*.localhost"| CADDY_P
+
+    style HOST fill:#f0883e15,stroke:#f0883e44,color:#e6edf3
+    style PROXY_NET fill:#d2a8ff08,stroke:#d2a8ff44,color:#e6edf3
+    style AGENTS_NET fill:#58a6ff08,stroke:#58a6ff44,color:#e6edf3
+    style TOOLS_NET fill:#3fb95008,stroke:#3fb95044,color:#e6edf3
+    </pre>
+  </div>
+
+  <h3>Simplified view: who is on which network</h3>
+  <div style="position:relative; margin-bottom: 2rem;">
+
+    <div class="net-zone proxy-net" style="margin-bottom:2rem">
+      <span class="net-label">proxy network (external, cross-stack)</span>
+      <div class="node-grid">
+        <div class="node exposed">traefik <span class="port">:80 :8080</span></div>
+        <div class="node bridge">caddy <span class="port">bridge</span></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="net-zone agents-net">
+        <span class="net-label">agents network</span>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem">Platform core + agent reasoning. Only containers that need LiteLLM or need to call agents.</p>
+        <div class="node-grid">
+          <div class="node exposed">caddy <span class="port">:8090</span></div>
+          <div class="node exposed">litellm <span class="port">:4000</span></div>
+          <div class="node exposed">litellm-db <span class="port">:5432</span></div>
+          <div class="node">phoenix <span class="port">:6006</span></div>
+          <div class="node">chroma <span class="port">:8000</span></div>
+          <div class="node exposed">openwebui <span class="port">:8080</span></div>
+          <div class="node bridge">mcpo <span class="port">bridge</span></div>
+          <div class="node bridge">open-terminal <span class="port">bridge</span></div>
+          <div class="node bridge">ldap-agent <span class="port">bridge</span></div>
+          <div class="node bridge">servicenow-agent <span class="port">bridge</span></div>
+          <div class="node bridge">sightline-agent <span class="port">bridge</span></div>
+          <div class="node bridge">code-agent <span class="port">bridge</span></div>
+          <div class="node bridge">enrichment-agent <span class="port">bridge</span></div>
+          <div class="node exposed">open-notebook <span class="port">:8502</span></div>
+          <div class="node">surrealdb <span class="port">:8000</span></div>
+          <div class="node bridge exposed">agentgateway <span class="port">:8081 bridge</span></div>
+        </div>
+      </div>
+
+      <div class="net-zone tools-net">
+        <span class="net-label">tools network</span>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.75rem">MCP data servers + execution sandboxes. Agents bridge here to reach data servers they call.</p>
+        <div class="node-grid">
+          <div class="node bridge">caddy <span class="port">bridge</span></div>
+          <div class="node bridge">phoenix <span class="port">bridge</span></div>
+          <div class="node bridge">mcpo <span class="port">bridge</span></div>
+          <div class="node bridge">open-terminal <span class="port">bridge</span></div>
+          <div class="node bridge">ldap-agent <span class="port">bridge</span></div>
+          <div class="node bridge">servicenow-agent <span class="port">bridge</span></div>
+          <div class="node bridge">sightline-agent <span class="port">bridge</span></div>
+          <div class="node bridge">code-agent <span class="port">bridge</span></div>
+          <div class="node bridge">enrichment-agent <span class="port">bridge</span></div>
+          <div class="node">ldap-mcp <span class="port">:8000</span></div>
+          <div class="node">servicenow-mcp <span class="port">:8000</span></div>
+          <div class="node">sightline-mcp <span class="port">:8000</span></div>
+          <div class="node">magic-fetch <span class="port">:8000</span></div>
+          <div class="node">mcp-time <span class="port">:8000</span></div>
+          <div class="node">mcp-fetch <span class="port">:8000</span></div>
+          <div class="node">agentregistry <span class="port">:8080</span></div>
+          <div class="node">registry-db</div>
+          <div class="node bridge">agentgateway <span class="port">bridge</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="border-color:var(--accent3); background:#d2a8ff15"></div> proxy — Traefik ingress</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color:var(--accent); background:#58a6ff15"></div> agents — platform + reasoning</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color:var(--accent2); background:#3fb95015"></div> tools — data servers + compute</div>
+    <div class="legend-item"><div style="width:18px;height:10px;border:2px dashed var(--text-muted);border-radius:3px"></div> bridge — on both networks</div>
+    <div class="legend-item"><div style="width:18px;height:10px;border:2px solid var(--accent4);border-radius:3px"></div> exposed — host port bound</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="insight-box">
+      <h4>Security Boundary Analysis</h4>
+      <ul>
+        <li>All host ports bind to 127.0.0.1 only — no external exposure</li>
+        <li class="ok">Caddy bridges all 3 networks — it's the single gateway</li>
+        <li class="ok">Data servers (ldap-mcp, servicenow-mcp, sightline-mcp) are tools-only — not reachable from proxy</li>
+        <li>Agents bridge agents+tools — they can reach everything on both networks</li>
+        <li>litellm-db :5432 is exposed to host — unnecessary for production</li>
+        <li class="ok">External APIs (LDAP, ServiceNow, Sightline) are called outbound only — no inbound from internet</li>
+      </ul>
+    </div>
+    <div class="insight-box">
+      <h4>Bridge Containers (dual-network)</h4>
+      <p style="margin-bottom:0.5rem">These 10 containers sit on both <code>agents</code> and <code>tools</code> networks. They can route traffic between the two — the network boundary is only as strong as these containers' code.</p>
+      <ul>
+        <li class="ok">caddy, phoenix, mcpo — infrastructure, expected</li>
+        <li class="ok">open-terminal — needs tools (mcpo) and agents (for API key auth)</li>
+        <li>All 5 agents bridge both networks — necessary today, but in k8s these should be separated</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ARTIFACT 2: ENRICHMENT-AGENT DELEGATION GRAPH                     -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="delegation">
+  <h2><span class="num">A2</span> Enrichment-Agent Delegation Graph</h2>
+  <p class="subtitle">Sequence diagram of a multi-agent enrichment request. Shows the two-level agentic system: enrichment-agent orchestrates specialist agents, which themselves run ReAct loops against data servers.</p>
+
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant WebUI as Open WebUI
+    participant Caddy as Caddy :8090
+    participant EA as enrichment-agent
+    participant LLM as LiteLLM :4000
+    participant LA as ldap-agent
+    participant LM as ldap-mcp
+    participant SA as servicenow-agent
+    participant SM as servicenow-mcp
+    participant OT as Open Terminal
+    participant PHX as Phoenix :6006
+
+    Note over User,PHX: Phase 1 — User request enters the system
+
+    User->>WebUI: "Get DS team from LDAP,<br/>find their incidents, export Excel"
+    WebUI->>Caddy: POST /mcp/enrichment-agent/mcp<br/>tools/call: enrich_data
+    Caddy->>EA: Forward MCP JSON-RPC
+
+    Note over EA,PHX: Phase 2 — Enrichment-agent ReAct loop begins
+
+    EA->>PHX: Start span: enrichment_task (AGENT)
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 1 — Reason about what data to gather
+        EA->>LLM: POST /v1/chat/completions<br/>model: openai-strong
+        LLM-->>EA: {"tool":"ask_ldap", "args":<br/>{"question":"List Data_Science members"}}
+    end
+
+    Note over EA,LM: Step 1 — Delegate to ldap-agent (agent-as-tool)
+
+    EA->>LA: POST /mcp — initialize<br/>JSON-RPC id:1
+    LA-->>EA: Mcp-Session-Id: xyz789
+    EA->>LA: POST /mcp — tools/call<br/>name: org_query
+
+    rect rgb(15, 30, 20)
+        Note over LA,LM: ldap-agent runs its OWN ReAct loop (max 10 steps)
+        LA->>LLM: POST /v1/chat/completions
+        LLM-->>LA: {"tool":"group_members",<br/>"args":{"group_name":"Data_Science"}}
+        LA->>LM: POST /mcp — tools/call<br/>name: group_members
+        LM-->>LA: {members: [{name:"Jeff Olsen",<br/>login:"jdoe"}, ...]}
+        LA->>LLM: POST /v1/chat/completions<br/>(with tool result)
+        LLM-->>LA: {"answer": "8 members found: ..."}
+    end
+
+    LA-->>EA: MCP result: "8 members found:<br/>Jeff Olsen (jdoe), ..."
+    EA->>PHX: Span: ask_ldap (TOOL)
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 2 — Reason with LDAP results in context
+        EA->>LLM: POST /v1/chat/completions<br/>(conversation + LDAP results)
+        LLM-->>EA: {"tool":"ask_servicenow", "args":<br/>{"question":"Open incidents for jdoe,..."}}
+    end
+
+    Note over EA,SM: Step 2 — Delegate to servicenow-agent
+
+    EA->>SA: POST /mcp — initialize
+    SA-->>EA: Mcp-Session-Id: def456
+    EA->>SA: POST /mcp — tools/call<br/>name: servicenow_query
+
+    rect rgb(30, 20, 15)
+        Note over SA,SM: servicenow-agent runs its OWN ReAct loop (max 12 steps)
+        SA->>LLM: POST /v1/chat/completions
+        LLM-->>SA: {"tool":"query_table", "args":<br/>{table:"incident", query:"..."}}
+        SA->>SM: POST /mcp — tools/call<br/>name: query_table
+        SM-->>SA: {records: [{number:"INC5500359", ...}]}
+        SA->>LLM: POST /v1/chat/completions
+        LLM-->>SA: {"answer": "12 open incidents..."}
+    end
+
+    SA-->>EA: MCP result: "12 open incidents..."
+    EA->>PHX: Span: ask_servicenow (TOOL)
+
+    Note over EA,OT: Phase 3 — Sandbox code execution (deterministic path)
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 3 — Decide to create sandbox job
+        EA->>LLM: POST /v1/chat/completions
+        LLM-->>EA: {"tool":"create_job", "args":{}}
+    end
+
+    EA->>OT: POST /files/mkdir<br/>{path:"/home/user/jobs/abc123"}
+    OT-->>EA: {job_id: "abc123"}
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 4 — Upload gathered data as CSV
+        EA->>LLM: POST /v1/chat/completions
+        LLM-->>EA: {"tool":"upload_file", "args":{...csv content...}}
+    end
+
+    EA->>OT: POST /files/write (ldap_members.csv)
+    OT-->>EA: {filename, size}
+    EA->>OT: POST /files/write (incidents.csv)
+    OT-->>EA: {filename, size}
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 5 — LLM writes pandas merge code
+        EA->>LLM: POST /v1/chat/completions
+        LLM-->>EA: {"tool":"execute_code", "args":<br/>{code:"import pandas as pd..."}}
+    end
+
+    Note over EA,OT: Deterministic execution — no LLM in the loop
+
+    EA->>OT: POST /files/write (_script.py)
+    EA->>OT: POST /execute<br/>{cmd:"timeout 30s python3 _script.py"}
+    OT-->>EA: {exit_code:0, stdout:"exported enriched.xlsx"}
+
+    rect rgb(15, 25, 50)
+        Note over EA,LLM: ReAct Step 6 — Final answer
+        EA->>LLM: POST /v1/chat/completions
+        LLM-->>EA: {"answer":"Download: files.localhost/abc123/enriched.xlsx"}
+    end
+
+    EA->>PHX: End span: enrichment_task
+    EA->>PHX: Flush OTEL traces
+
+    EA-->>Caddy: MCP result: download link
+    Caddy-->>WebUI: Forward response
+    WebUI-->>User: "Download: files.localhost/abc123/enriched.xlsx"
+    </pre>
+  </div>
+
+  <div class="grid-3">
+    <div class="card purple-hl">
+      <h3><span class="dot purple"></span> Agent-as-Tool Pattern</h3>
+      <p>enrichment-agent does NOT call ldap-mcp or servicenow-mcp directly. It delegates to specialist agents that carry domain knowledge in their system prompts. Each specialist runs its own ReAct loop — it's a two-level agentic system.</p>
+    </div>
+    <div class="card green-hl">
+      <h3><span class="dot green"></span> LLM Call Count</h3>
+      <p>A typical enrichment request makes <strong>6+ LiteLLM calls</strong> from the orchestrator, plus <strong>2-4 per specialist</strong>. Total: ~10-14 LLM round-trips. Each costs tokens. The deterministic sandbox path avoids this for the actual data merge.</p>
+    </div>
+    <div class="card orange-hl">
+      <h3><span class="dot orange"></span> Not Delegated: code-agent</h3>
+      <p>Despite existing as a service, code-agent is NOT called by enrichment-agent. The enrichment-agent calls Open Terminal's HTTP API directly. code-agent is a standalone orchestrator for code-only tasks routed separately.</p>
+    </div>
+  </div>
+
+  <div class="insight-box" style="margin-top:1.5rem">
+    <h4>Protocol Stack at Each Hop</h4>
+    <ul>
+      <li class="ok">User → WebUI: HTTP (browser)</li>
+      <li class="ok">WebUI → Caddy: HTTP MCP (tool connection)</li>
+      <li class="ok">Caddy → enrichment-agent: HTTP reverse proxy (slug routing)</li>
+      <li class="ok">enrichment-agent → specialist agents: HTTP MCP JSON-RPC 2.0 (with session init + Mcp-Session-Id header)</li>
+      <li class="ok">specialist agents → data servers: HTTP MCP JSON-RPC 2.0 (same protocol, different session)</li>
+      <li class="ok">enrichment-agent → Open Terminal: plain HTTP REST (not MCP — different API)</li>
+      <li class="ok">All agents → LiteLLM: OpenAI-compatible HTTP (/v1/chat/completions)</li>
+      <li class="ok">All agents → Phoenix: OTEL HTTP exporter (batched spans)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ARTIFACT 3: DEPENDENCY MATRIX (WHO CALLS WHOM)                    -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="dependency">
+  <h2><span class="num">A3</span> Dependency Matrix</h2>
+  <p class="subtitle">Every service-to-service call. Read rows as "this service calls...". Color intensity shows call type.</p>
+
+  <div class="legend">
+    <div class="legend-item"><span style="color:var(--accent2); font-weight:700">&#9679;</span> calls (request path)</div>
+    <div class="legend-item"><span style="color:var(--accent); font-weight:700">&#9679;</span> heavy (reasoning loop)</div>
+    <div class="legend-item"><span style="color:var(--accent3); font-weight:700">&#9679;</span> delegates (agent-as-tool)</div>
+    <div class="legend-item"><span style="color:var(--accent4); font-weight:700">&#9679;</span> telemetry</div>
+    <div class="legend-item"><span style="color:#21262d; font-weight:700">&#183;</span> no dependency</div>
+  </div>
+
+  <div class="heatmap-container">
+    <table class="heatmap">
+      <thead>
+        <tr>
+          <th>Caller ↓ / Callee →</th>
+          <th class="rotate">caddy</th>
+          <th class="rotate">litellm</th>
+          <th class="rotate">litellm-db</th>
+          <th class="rotate">phoenix</th>
+          <th class="rotate">chroma</th>
+          <th class="rotate">openwebui</th>
+          <th class="rotate">ldap-mcp</th>
+          <th class="rotate">snow-mcp</th>
+          <th class="rotate">sight-mcp</th>
+          <th class="rotate">magic-fetch</th>
+          <th class="rotate">mcp-time</th>
+          <th class="rotate">mcp-fetch</th>
+          <th class="rotate">ldap-agent</th>
+          <th class="rotate">snow-agent</th>
+          <th class="rotate">sight-agent</th>
+          <th class="rotate">code-agent</th>
+          <th class="rotate">enrich-agent</th>
+          <th class="rotate">open-terminal</th>
+          <th class="rotate">mcpo</th>
+          <th class="rotate">ext: LDAP</th>
+          <th class="rotate">ext: SNOW</th>
+          <th class="rotate">ext: Sightline</th>
+          <th class="rotate">ext: LLM APIs</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>traefik</td>
+          <td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>caddy</td>
+          <td class="self">&#8212;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>openwebui</td>
+          <td class="c1">&#9679;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c1">&#9679;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>litellm</td>
+          <td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c2">&#9679;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c2">&#9679;</td>
+        </tr>
+        <tr>
+          <td>ldap-agent</td>
+          <td class="c0">&#183;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>servicenow-agent</td>
+          <td class="c0">&#183;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>sightline-agent</td>
+          <td class="c0">&#183;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>code-agent</td>
+          <td class="c0">&#183;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>enrichment-agent</td>
+          <td class="c0">&#183;</td><td class="c2">&#9679;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c3">&#9679;</td><td class="c3">&#9679;</td><td class="c3">&#9679;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>open-terminal</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>mcpo</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>ldap-mcp</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>servicenow-mcp</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>sightline-mcp</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>magic-fetch</td>
+          <td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c4">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="self">&#8212;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td>
+        </tr>
+        <tr>
+          <td>open-notebook</td>
+          <td class="c0">&#183;</td><td class="c1">&#9679;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td><td class="c0">&#183;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid-3" style="margin-top:1.5rem">
+    <div class="card highlight">
+      <h3><span class="dot blue"></span> Highest Fan-In: LiteLLM</h3>
+      <p><strong>8 callers</strong> — openwebui, all 5 agents, open-notebook, and (indirectly) litellm-db. Every reasoning step in the system flows through this single gateway. It's the most critical chokepoint.</p>
+    </div>
+    <div class="card purple-hl">
+      <h3><span class="dot purple"></span> Highest Fan-Out: enrichment-agent</h3>
+      <p><strong>6 callees</strong> — litellm, phoenix, ldap-agent, servicenow-agent, sightline-agent, open-terminal. Most connected component in the system. Failure in any dependency cascades here first.</p>
+    </div>
+    <div class="card green-hl">
+      <h3><span class="dot green"></span> Highest Fan-Out: Caddy</h3>
+      <p><strong>15 callees</strong> — routes to every MCP service, both UIs, litellm, and phoenix. But this is routing, not logic — Caddy is stateless and replaceable. The enrichment-agent fan-out is more architecturally significant.</p>
+    </div>
+  </div>
+
+  <div class="insight-box" style="margin-top:1.5rem">
+    <h4>Reading the Matrix</h4>
+    <ul>
+      <li class="ok">Data servers (ldap-mcp, servicenow-mcp, sightline-mcp) have fan-out of exactly 1 — they call only their external API. Clean adapters.</li>
+      <li class="ok">Agents have a consistent pattern: LiteLLM (reasoning) + one data server (tools) + Phoenix (telemetry). Symmetric design.</li>
+      <li>enrichment-agent breaks the pattern — it calls 3 agents + sandbox but NOT data servers. This is the agent-as-tool pattern.</li>
+      <li class="ok">open-terminal → mcpo → data servers forms the deterministic pipeline. No LiteLLM in that chain.</li>
+      <li class="ok">No circular dependencies. The graph is a DAG from UI → agents → data servers → external.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ARTIFACT 4: TRACE A PHOENIX SPAN END-TO-END                       -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="traces">
+  <h2><span class="num">A4</span> Phoenix Span Trace — End to End</h2>
+  <p class="subtitle">Following one user query from Open WebUI through the enrichment-agent to data servers. Each box is an OpenInference span as it would appear in Phoenix. Dashed red boxes are observability gaps — hops with no span emitted.</p>
+
+  <div class="grid-2" style="margin-bottom:2rem">
+    <div class="card">
+      <h3><span class="dot green"></span> What Gets Traced</h3>
+      <ul>
+        <li>Every agent ReAct step (CHAIN span)</li>
+        <li>Every LiteLLM chat completion (LLM span)</li>
+        <li>Every tool call from an agent (TOOL span)</li>
+        <li>The overall agent task (AGENT span)</li>
+        <li>LiteLLM's own request traces (provider-level)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="dot red"></span> What Does NOT Get Traced</h3>
+      <ul>
+        <li>Open WebUI → Caddy routing</li>
+        <li>Caddy → agent forwarding</li>
+        <li>Specialist agent internals (separate trace context)</li>
+        <li>Open Terminal code execution</li>
+        <li>mcpo → data server MCP calls</li>
+        <li>Data server → external API calls</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Span Tree: "Get DS team members and their incidents"</h3>
+  <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem">This is what Phoenix shows for one enrichment request. Indentation = parent-child nesting. Trace propagation headers are injected via <code>otel_inject()</code> on outbound MCP calls, but specialist agents start their own trace roots.</p>
+
+  <div class="span-trace">
+
+    <!-- Top-level gap: WebUI to Caddy -->
+    <div class="span gap">
+      <span class="span-name">webui → caddy → enrichment-agent</span>
+      <span class="span-kind">GAP</span>
+      <span class="span-time">~5ms</span>
+      <div class="span-attrs">No span emitted. Open WebUI makes MCP tool call via Caddy reverse proxy. Routing is invisible to Phoenix.</div>
+    </div>
+
+    <!-- AGENT span -->
+    <div class="span agent">
+      <span class="span-name">enrichment_task</span>
+      <span class="span-kind">AGENT</span>
+      <span class="span-time">~45s total</span>
+      <div class="span-attrs">
+        <code>openinference.span.kind = AGENT</code>
+        <code>input.value = "Get DS team members and their incidents"</code>
+      </div>
+
+      <!-- Step 1: reason -->
+      <div class="span chain">
+        <span class="span-name">react_step</span>
+        <span class="span-kind">CHAIN</span>
+        <span class="span-time">~2s</span>
+        <div class="span-attrs"><code>react.step = 1</code></div>
+
+        <div class="span llm">
+          <span class="span-name">chat_completion</span>
+          <span class="span-kind">LLM</span>
+          <span class="span-time">~1.8s</span>
+          <div class="span-attrs">
+            <code>llm.model_name = openai-strong</code>
+            <code>llm.token_count.prompt = 1847</code>
+            <code>llm.token_count.completion = 89</code>
+            <code>output.value = {"tool":"ask_ldap", ...}</code>
+          </div>
+        </div>
+
+        <div class="span tool">
+          <span class="span-name">ask_ldap</span>
+          <span class="span-kind">TOOL</span>
+          <span class="span-time">~8s</span>
+          <div class="span-attrs">
+            <code>tool.name = ask_ldap</code>
+            <code>input.value = "List Data_Science members"</code>
+            <code>output.value = "8 members found: ..."</code>
+          </div>
+
+          <!-- What happens INSIDE the tool call — separate trace -->
+          <div class="span gap">
+            <span class="span-name">ldap-agent internals</span>
+            <span class="span-kind">SEPARATE TRACE</span>
+            <div class="span-attrs">OTEL propagation headers sent via <code>otel_inject()</code>, but ldap-agent starts its own root span. In Phoenix, this is a <strong>separate trace</strong> linked by trace propagation — not a child of this span tree.<br/><br/>
+              Inside ldap-agent's trace:<br/>
+              &nbsp;&nbsp;AGENT: org_query<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;CHAIN: react_step 1<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LLM: chat_completion → litellm<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TOOL: group_members → ldap-mcp<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;CHAIN: react_step 2<br/>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LLM: chat_completion → litellm<br/>
+            </div>
+
+            <div class="span gap">
+              <span class="span-name">ldap-mcp → AD LDAP :636</span>
+              <span class="span-kind">GAP</span>
+              <div class="span-attrs">ldap-mcp has no OTEL instrumentation. The LDAPS query to Active Directory is invisible to Phoenix.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: reason + servicenow -->
+      <div class="span chain">
+        <span class="span-name">react_step</span>
+        <span class="span-kind">CHAIN</span>
+        <span class="span-time">~12s</span>
+        <div class="span-attrs"><code>react.step = 2</code></div>
+
+        <div class="span llm">
+          <span class="span-name">chat_completion</span>
+          <span class="span-kind">LLM</span>
+          <span class="span-time">~2.5s</span>
+          <div class="span-attrs">
+            <code>llm.model_name = openai-strong</code>
+            <code>llm.token_count.prompt = 3200</code>
+            <code>output.value = {"tool":"ask_servicenow", ...}</code>
+          </div>
+        </div>
+
+        <div class="span tool">
+          <span class="span-name">ask_servicenow</span>
+          <span class="span-kind">TOOL</span>
+          <span class="span-time">~10s</span>
+          <div class="span-attrs">
+            <code>tool.name = ask_servicenow</code>
+            <code>output.value = "12 open incidents..."</code>
+          </div>
+
+          <div class="span gap">
+            <span class="span-name">servicenow-agent internals</span>
+            <span class="span-kind">SEPARATE TRACE</span>
+            <div class="span-attrs">Same pattern: separate trace in Phoenix. servicenow-agent's ReAct loop spans are in their own trace tree.</div>
+
+            <div class="span gap">
+              <span class="span-name">servicenow-mcp → ServiceNow REST API</span>
+              <span class="span-kind">GAP</span>
+              <div class="span-attrs">No OTEL instrumentation on data servers. ServiceNow API call latency is invisible.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: create_job -->
+      <div class="span chain">
+        <span class="span-name">react_step</span>
+        <span class="span-kind">CHAIN</span>
+        <span class="span-time">~1.5s</span>
+        <div class="span-attrs"><code>react.step = 3</code></div>
+
+        <div class="span llm">
+          <span class="span-name">chat_completion</span>
+          <span class="span-kind">LLM</span>
+          <span class="span-time">~1.2s</span>
+          <div class="span-attrs"><code>output.value = {"tool":"create_job", ...}</code></div>
+        </div>
+
+        <div class="span tool">
+          <span class="span-name">create_job</span>
+          <span class="span-kind">TOOL</span>
+          <span class="span-time">~80ms</span>
+          <div class="span-attrs"><code>tool.name = create_job</code> <code>output.value = {job_id: "abc123"}</code></div>
+
+          <div class="span gap">
+            <span class="span-name">open-terminal HTTP</span>
+            <span class="span-kind">GAP</span>
+            <div class="span-attrs">POST /files/mkdir — no OTEL. Sandbox operations are invisible to Phoenix.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Steps 4-5: upload + execute (collapsed) -->
+      <div class="span chain">
+        <span class="span-name">react_step</span>
+        <span class="span-kind">CHAIN</span>
+        <span class="span-time">~3s</span>
+        <div class="span-attrs"><code>react.step = 4..5</code> — upload CSV files, write + execute Python script</div>
+
+        <div class="span llm">
+          <span class="span-name">chat_completion (x2)</span>
+          <span class="span-kind">LLM</span>
+          <span class="span-time">~2.5s total</span>
+          <div class="span-attrs">Code generation: LLM writes pandas merge script</div>
+        </div>
+
+        <div class="span tool">
+          <span class="span-name">upload_file, execute_code</span>
+          <span class="span-kind">TOOL</span>
+          <span class="span-time">~500ms</span>
+          <div class="span-attrs">
+            <code>tool.name = execute_code</code>
+            <code>output.value = {exit_code: 0, stdout: "exported enriched.xlsx"}</code>
+          </div>
+
+          <div class="span gap">
+            <span class="span-name">sandbox execution</span>
+            <span class="span-kind">GAP</span>
+            <div class="span-attrs">Python pandas script runs in Open Terminal. If the script calls mcpo → data servers, those hops are also untraced.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 6: final answer -->
+      <div class="span chain">
+        <span class="span-name">react_step</span>
+        <span class="span-kind">CHAIN</span>
+        <span class="span-time">~1.5s</span>
+        <div class="span-attrs"><code>react.step = 6</code></div>
+
+        <div class="span llm">
+          <span class="span-name">chat_completion</span>
+          <span class="span-kind">LLM</span>
+          <span class="span-time">~1.2s</span>
+          <div class="span-attrs">
+            <code>output.value = {"answer": "Download: files.localhost/abc123/enriched.xlsx"}</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="span-attrs" style="margin-top:0.5rem">
+        <code>output.value = "Download: files.localhost/abc123/enriched.xlsx"</code>
+      </div>
+    </div>
+
+    <!-- Return gap -->
+    <div class="span gap">
+      <span class="span-name">enrichment-agent → caddy → webui → user</span>
+      <span class="span-kind">GAP</span>
+      <span class="span-time">~3ms</span>
+      <div class="span-attrs">Return path is untraced. MCP JSON-RPC response flows back through Caddy to Open WebUI.</div>
+    </div>
+
+  </div>
+
+  <div class="grid-2" style="margin-top:2rem">
+    <div class="insight-box">
+      <h4>Observability Coverage: ~40%</h4>
+      <p style="margin-bottom:0.5rem">Of the full request chain (User → WebUI → Caddy → Agent → LiteLLM → Agent → Data Server → External API), Phoenix only sees the agent's internal reasoning and LiteLLM calls.</p>
+      <ul>
+        <li class="ok"><strong>Well-traced:</strong> agent ReAct steps, LLM calls (model, tokens, latency), tool call inputs/outputs</li>
+        <li><strong>Separate traces:</strong> specialist agent internals (linked by propagation headers but not nested)</li>
+        <li><strong>Invisible:</strong> HTTP routing (Caddy), data server internals, external API calls, sandbox execution, mcpo bridging</li>
+      </ul>
+    </div>
+    <div class="insight-box">
+      <h4>Recommendations to Close Gaps</h4>
+      <ul>
+        <li class="ok">Add OTEL to data servers (ldap-mcp, servicenow-mcp, sightline-mcp) — instrument the external API calls to see where time goes</li>
+        <li class="ok">Add OTEL to Open Terminal — trace code execution time and mcpo REST calls from sandbox</li>
+        <li class="ok">Add OTEL to mcpo — trace the MCP→REST bridge hop, especially latency per data server</li>
+        <li class="ok">Ensure trace context propagation is end-to-end — enrichment-agent injects headers but specialist agents may start new roots instead of continuing the trace</li>
+        <li>Consider: is Caddy tracing worthwhile? Probably not — routing latency is negligible (~5ms)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  AI Workbench — Deep Artifacts — generated 2026-05-07
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f6feb',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#30363d',
+      lineColor: '#58a6ff',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#0d1117',
+      fontSize: '13px',
+      noteBkgColor: '#161b22',
+      noteTextColor: '#8b949e',
+      noteBorderColor: '#30363d',
+      actorBkg: '#161b22',
+      actorTextColor: '#e6edf3',
+      actorBorder: '#58a6ff',
+      actorLineColor: '#30363d',
+      signalColor: '#58a6ff',
+      signalTextColor: '#e6edf3',
+      activationBkgColor: '#1c2333',
+      activationBorderColor: '#58a6ff',
+      sequenceNumberColor: '#58a6ff'
+    },
+    sequence: { mirrorActors: false, messageMargin: 30, actorMargin: 40, width: 180 }
+  });
+
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

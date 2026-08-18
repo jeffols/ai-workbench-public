@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "type": "streamable-http",
+      "url": "http://mcp-fetch:8000/mcp"
+    },
+    "time": {
+      "type": "streamable-http",
+      "url": "http://mcp-time:8000/mcp"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+slug: mcp-time
+name: "Time & Timezone"
+description: "Current time and timezone conversions (Docker Hub mcp/time)"
+owner: platform
+transport: streamable-http
+mcp_path: /mcp
+health_path: /mcp
+risk_tier: read
+auth:
+  mode: none

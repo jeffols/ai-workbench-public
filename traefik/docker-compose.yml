@@ -1,0 +1,46 @@
+# Shared Traefik ingress — routes *.localhost hostnames across all stacks.
+# Start with: docker compose -f traefik/docker-compose.yml up -d
+#
+# Any service in any stack can opt in by:
+#   1. Joining the external "proxy" network
+#   2. Adding labels:
+#        traefik.enable: "true"
+#        traefik.http.routers.<name>.rule: Host(`<name>.localhost`)
+#        traefik.http.services.<name>.loadbalancer.server.port: "<port>"
+#        traefik.docker.network: proxy    # required if service is on multiple networks
+
+name: traefik
+
+services:
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --entrypoints.web.address=:80
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --providers.docker.defaultRule=Host(`{{ index .Labels "com.docker.compose.service" }}.localhost`)
+      - --log.level=WARN
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:8080:8080"    # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+    name: proxy
+    driver: bridge

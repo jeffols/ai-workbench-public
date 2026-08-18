@@ -1,0 +1,16 @@
+slug: magic-fetch
+name: Magic Fetch
+owner: platform
+description: >-
+  Demand-signal collector — logs what data the LLM wishes it had access to.
+  Traces appear in Phoenix for capability planning.
+transport: http
+port: 8000
+mcp_path: /mcp
+health_path: /healthz
+auth:
+  mode: none
+risk_tier: internal
+tags: [observability, signals, meta]
+depends_on_platform:
+  - phoenix

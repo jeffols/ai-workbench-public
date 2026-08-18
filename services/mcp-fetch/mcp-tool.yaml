@@ -1,0 +1,10 @@
+slug: mcp-fetch
+name: "Web Fetch"
+description: "Fetch URLs and return their content as markdown (Docker Hub mcp/fetch)"
+owner: platform
+transport: streamable-http
+mcp_path: /mcp
+health_path: /mcp
+risk_tier: read
+auth:
+  mode: none

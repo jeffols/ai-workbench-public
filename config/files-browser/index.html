@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Files</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; background: #111; color: #ddd; }
+  h1 { font-size: 1.4rem; margin-bottom: .25rem; }
+  .path { color: #888; font-size: .9em; margin-bottom: 1rem; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; border-bottom: 1px solid #333; padding: .4rem 0; color: #888; font-weight: normal; font-size: .85em; }
+  td { padding: .4rem 0; border-bottom: 1px solid #222; }
+  .icon { margin-right: .4rem; }
+  .size { color: #888; font-size: .9em; }
+  .date { color: #666; font-size: .85em; }
+  .empty { color: #666; padding: 2rem 0; text-align: center; }
+  .back { margin-bottom: .5rem; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>📁 Job Files</h1>
+<div class="path" id="current-path"></div>
+<div id="content">Loading…</div>
+<script>
+const API = '/_api';
+const path = location.pathname.replace(/\/$/, '') || '';
+
+document.getElementById('current-path').textContent = '/jobs' + (path || '/');
+
+async function load() {
+  const box = document.getElementById('content');
+  const apiPath = '/home/user/jobs' + path;
+
+  // Try listing first (directory)
+  let resp = await fetch(API + '/list?directory=' + encodeURIComponent(apiPath));
+  if (resp.ok) {
+    const data = await resp.json();
+    renderDir(data.entries || [], box);
+    return;
+  }
+
+  // Not a directory — try as file read (show inline)
+  resp = await fetch(API + '/read?path=' + encodeURIComponent(apiPath));
+  if (resp.ok) {
+    const data = await resp.json();
+    box.innerHTML = '<pre style="white-space:pre-wrap;word-break:break-all;">' +
+      escHtml(data.content || '(empty)') + '</pre>';
+    return;
+  }
+  box.innerHTML = '<div class="empty">Not found</div>';
+}
+
+function renderDir(entries, box) {
+  if (!entries.length) { box.innerHTML = '<div class="empty">Empty directory</div>'; return; }
+  const dirs = entries.filter(e => e.type === 'directory').sort((a,b) => b.modified - a.modified);
+  const files = entries.filter(e => e.type === 'file' && !e.name.startsWith('_')).sort((a,b) => a.name.localeCompare(b.name));
+  let html = '';
+  if (path !== '') html += '<a class="back" href="' + parentPath() + '">⬆ ..</a>';
+  html += '<table><thead><tr><th>Name</th><th>Size</th><th>Modified</th></tr></thead><tbody>';
+  for (const d of dirs) {
+    const href = path + '/' + d.name;
+    html += row('📁', d.name, href, '—', fmtDate(d.modified));
+  }
+  for (const f of files) {
+    const href = path + '/' + f.name;
+    html += row(icon(f.name), f.name, href, fmtSize(f.size), fmtDate(f.modified));
+  }
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+
+function row(ic, name, href, size, date) {
+  return '<tr><td><span class="icon">' + ic + '</span><a href="' + href + '">' + escHtml(name) + '</a></td>' +
+    '<td class="size">' + size + '</td><td class="date">' + date + '</td></tr>';
+}
+function parentPath() { const p = path.split('/').filter(Boolean); p.pop(); return '/' + p.join('/'); }
+function fmtSize(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(1) + ' MB'; }
+function fmtDate(ts) { return new Date(ts * 1000).toLocaleString(); }
+function icon(n) { const e = n.split('.').pop().toLowerCase(); return {xlsx:'📊',csv:'📊',json:'📄',txt:'📄',py:'🐍',png:'🖼️',jpg:'🖼️'}[e] || '📄'; }
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+load();
+</script>
+</body>
+</html>

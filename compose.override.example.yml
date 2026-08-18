@@ -1,0 +1,7 @@
+# Optional: expose additional internal services on localhost for debugging.
+# Copy to docker-compose.override.yml and run `docker compose up -d`.
+
+services:
+  phoenix:
+    ports:
+      - "127.0.0.1:6006:6006"

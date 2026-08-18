@@ -1,0 +1,21 @@
+config: {}
+binds:
+  - port: 8081
+    listeners:
+      - name: default
+        protocol: HTTP
+        routes:
+          - name: mcp_route
+            matches:
+              - path:
+                  pathPrefix: /mcp
+            backends:
+              - weight: 100
+                mcp:
+                  targets:
+                    - name: magic-fetch
+                      mcp:
+                        host: "http://magic-fetch:8000/mcp"
+                    - name: mcp-time
+                      mcp:
+                        host: "http://mcp-time:8000/mcp"

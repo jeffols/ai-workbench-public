@@ -1,0 +1,18 @@
+services:
+  mcp-time:
+    build: .
+    restart: unless-stopped
+    profiles: [tools]
+    networks: [tools]
+    expose:
+      - "8000"
+    # mcp-proxy bridges stdio→streamable-http with proper Mcp-Session-Id
+    deploy:
+      resources:
+        limits: { memory: 128M, cpus: "0.5" }
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request,urllib.error\ntry: urllib.request.urlopen('http://localhost:8000/mcp',timeout=3)\nexcept urllib.error.HTTPError as e: exit(0 if e.code<500 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

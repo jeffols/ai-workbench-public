@@ -1,0 +1,611 @@
+name: ai-workbench
+
+networks:
+  agents:                # Platform + agent reasoning services
+    driver: bridge
+  tools:                 # Raw MCP tool servers + execution sandboxes
+    driver: bridge
+  proxy:                 # Shared Traefik ingress (external)
+    external: true
+
+volumes:
+  openwebui-data:
+  chroma-data:
+  phoenix-data:
+  surrealdb-data:
+  open-notebook-data:
+  litellm-db-data:
+  terminal-home:
+  onyx-db-data:
+  onyx-vespa-data:
+  onyx-minio-data:
+  onyx-model-cache:
+
+# ── Tool fragments (each MCP tool owns its own Compose file) ──────────────
+include:
+  - path: ./services/magic-fetch/compose.mcp.yaml
+  - path: ./services/open-terminal/compose.mcp.yaml
+  - path: ./services/agentregistry/compose.mcp.yaml
+  - path: ./services/code-agent/compose.mcp.yaml
+  - path: ./services/mcp-time/compose.mcp.yaml
+  - path: ./services/mcp-fetch/compose.mcp.yaml
+  - path: ./config/openwebui/compose.tool-connections.yaml
+
+services:
+  # ── Platform core (always on) ───────────────────────────────────────────
+
+  caddy:
+    image: ${CADDY_IMAGE}
+    restart: unless-stopped
+    networks: [agents, tools, proxy]  # front door — proxies to both sides + Traefik ingress
+    ports:
+      - "127.0.0.1:${CADDY_PORT}:8090"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      # Workbench hostname routes → Caddy port 80 (Caddyfile virtual hosts)
+      traefik.http.routers.workbench-status.rule: Host(`ai-workbench.localhost`) || Host(`status.localhost`)
+      traefik.http.routers.workbench-status.service: caddy-http
+      traefik.http.routers.workbench-chat.rule: Host(`chat.localhost`)
+      traefik.http.routers.workbench-chat.service: caddy-http
+      traefik.http.routers.workbench-litellm.rule: Host(`litellm.localhost`)
+      traefik.http.routers.workbench-litellm.service: caddy-http
+      traefik.http.routers.workbench-phoenix.rule: Host(`phoenix.localhost`)
+      traefik.http.routers.workbench-phoenix.service: caddy-http
+      traefik.http.routers.workbench-notebook.rule: Host(`notebook.localhost`)
+      traefik.http.routers.workbench-notebook.service: caddy-http
+      traefik.http.routers.workbench-registry.rule: Host(`registry.localhost`)
+      traefik.http.routers.workbench-registry.service: caddy-http
+      traefik.http.routers.workbench-terminal.rule: Host(`terminal.localhost`)
+      traefik.http.routers.workbench-terminal.service: caddy-http
+      traefik.http.routers.workbench-files.rule: Host(`files.localhost`)
+      traefik.http.routers.workbench-files.service: caddy-http
+      # Caddy port 80 handles *.localhost virtual hosts
+      traefik.http.services.caddy-http.loadbalancer.server.port: "80"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./config/catalog:/srv/catalog:ro
+      - ./config/files-browser:/srv/files-browser:ro
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OPEN_TERMINAL_API_KEY: ${OPEN_TERMINAL_API_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8090/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  phoenix:
+    image: ${PHOENIX_IMAGE}
+    restart: unless-stopped
+    networks: [agents, tools]       # OTEL sink for all services
+    expose:
+      - "6006"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    volumes:
+      - phoenix-data:/mnt/data
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+      PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME}
+      PHOENIX_ALLOW_EXTERNAL_RESOURCES: ${PHOENIX_ALLOW_EXTERNAL_RESOURCES}
+      PHOENIX_DEFAULT_RETENTION_POLICY_DAYS: ${PHOENIX_DEFAULT_RETENTION_POLICY_DAYS}
+
+  litellm-db:
+    image: ${LITELLM_DB_IMAGE}
+    restart: unless-stopped
+    networks: [agents]
+    ports:
+      - "127.0.0.1:${LITELLM_DB_PORT}:5432"
+    volumes:
+      - litellm-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD}
+      POSTGRES_DB: litellm
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  litellm:
+    image: ${LITELLM_IMAGE}
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "4000"
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      phoenix:
+        condition: service_started
+      litellm-db:
+        condition: service_healthy
+    volumes:
+      - ./config/litellm/config.yaml:/app/config.yaml:ro
+      - ./config/litellm/guardrails:/app/guardrails:ro
+      - ${CA_BUNDLE_PATH:-/dev/null}:/etc/ssl/certs/custom-ca-bundle.pem:ro
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@litellm-db:5432/litellm
+      STORE_MODEL_IN_DB: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AZURE_API_KEY: ${AZURE_API_KEY}
+      AZURE_API_BASE: ${AZURE_API_BASE}
+      AZURE_API_VERSION: ${AZURE_API_VERSION}
+      REQUESTS_CA_BUNDLE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      SSL_CERT_FILE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006
+      PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME}
+      # Guardrails seam (S2 DLP) — harmless when GUARDRAILS_ENABLED=false since
+      # bootstrap.py only emits the `guardrails:` block in config.yaml when enabled.
+      PRESIDIO_ANALYZER_API_BASE: ${PRESIDIO_ANALYZER_API_BASE}
+      PRESIDIO_ANONYMIZER_API_BASE: ${PRESIDIO_ANONYMIZER_API_BASE}
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,os;os.environ['no_proxy']='*';urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:4000/health/liveliness',headers={'Authorization':'Bearer '+os.environ.get('LITELLM_MASTER_KEY','')})).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Guardrails seam (S2 DLP — opt-in, see docs/deployment-seams.md) ───────
+  # Presidio redacts PII/PHI before it reaches the model. Enforced from the
+  # LiteLLM gateway (config.yaml `guardrails:` block, generated when
+  # GUARDRAILS_ENABLED=true), so every frontend is covered without changes.
+  presidio-analyzer:
+    image: ${PRESIDIO_ANALYZER_IMAGE}
+    profiles: [guardrails]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "3000"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:3000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  presidio-anonymizer:
+    image: ${PRESIDIO_ANONYMIZER_IMAGE}
+    profiles: [guardrails]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "3000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:3000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  chroma:
+    image: ${CHROMA_IMAGE}
+    profiles: [openwebui]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    volumes:
+      - chroma-data:/data
+
+  # ── MCP-to-REST gateway (tools profile) ──────────────────────────────────
+
+  mcpo:
+    image: ${MCPO_IMAGE}
+    profiles: [tools]
+    restart: unless-stopped
+    networks: [agents, tools]       # bridges MCP tools → REST for agents
+    expose:
+      - "8000"
+    depends_on:
+      mcp-fetch:
+        condition: service_healthy
+      mcp-time:
+        condition: service_healthy
+    volumes:
+      - ./config/mcpo/mcpo.json:/config/mcpo.json:ro
+    command: ["--port=8000", "--config=/config/mcpo.json"]
+    environment:
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/fetch/docs', timeout=5)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  # ── UI layer (optional — use "notebook" profile) ─────────────────────────
+
+  surrealdb:
+    image: ${SURREALDB_IMAGE}
+    profiles: [notebook]
+    restart: unless-stopped
+    networks: [agents]
+    user: root
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    volumes:
+      - surrealdb-data:/mydata
+    command: start --log info --user root --pass root rocksdb:/mydata/mydatabase.db
+    environment:
+      SURREAL_EXPERIMENTAL_GRAPHQL: "true"
+
+  open-notebook:
+    image: ${OPEN_NOTEBOOK_IMAGE}
+    profiles: [notebook]
+    restart: unless-stopped
+    networks: [agents]
+    ports:
+      - "127.0.0.1:${OPEN_NOTEBOOK_PORT}:8502"
+      - "127.0.0.1:5055:5055"
+    depends_on:
+      surrealdb:
+        condition: service_started
+      litellm:
+        condition: service_healthy
+    environment:
+      OPEN_NOTEBOOK_ENCRYPTION_KEY: ${OPEN_NOTEBOOK_ENCRYPTION_KEY}
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: root
+      SURREAL_PASSWORD: root
+      SURREAL_NAMESPACE: open_notebook
+      SURREAL_DATABASE: open_notebook
+      REQUESTS_CA_BUNDLE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      SSL_CERT_FILE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+    volumes:
+      - open-notebook-data:/app/data
+      - ${CA_BUNDLE_PATH:-/dev/null}:/etc/ssl/certs/custom-ca-bundle.pem:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  openwebui:
+    image: ${OPENWEBUI_IMAGE}
+    profiles: [openwebui]
+    restart: unless-stopped
+    networks: [agents]
+    ports:
+      - "127.0.0.1:${OPENWEBUI_PORT}:8080"
+    depends_on:
+      litellm:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      phoenix:
+        condition: service_started
+      caddy:
+        condition: service_healthy
+    environment:
+      # Always read config from env vars, not the database
+      ENABLE_PERSISTENT_CONFIG: "false"
+
+      # Auth
+      WEBUI_URL: http://localhost:${OPENWEBUI_PORT}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      WEBUI_ADMIN_NAME: ${WEBUI_ADMIN_NAME}
+      WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL}
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD}
+      ENABLE_LOGIN_FORM: "true"
+      ENABLE_SIGNUP: "false"
+      ENABLE_PASSWORD_AUTH: "true"
+      DEFAULT_USER_ROLE: user
+
+      # LiteLLM backend (via OpenAI-compatible API)
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      ENABLE_OLLAMA_API: "false"
+      DEFAULT_MODELS: ${DEFAULT_CHAT_MODEL}
+
+      # RAG / embeddings
+      VECTOR_DB: chroma
+      CHROMA_HTTP_HOST: chroma
+      CHROMA_HTTP_PORT: "8000"
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1
+      RAG_OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL}
+
+      # MCP tools — set by config/openwebui/compose.tool-connections.yaml (generated)
+
+      # Open Terminal integration
+      TERMINAL_SERVER_CONNECTIONS: '[{"id":"workbench","name":"Workbench Terminal","url":"http://open-terminal:8000","auth_type":"bearer","key":"${OPEN_TERMINAL_API_KEY}","enabled":true}]'
+
+      # Corporate proxy / TLS
+      REQUESTS_CA_BUNDLE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      SSL_CERT_FILE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+
+      # Observability
+      ENABLE_OTEL: "true"
+      OTEL_SERVICE_NAME: open-webui
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    volumes:
+      - openwebui-data:/app/backend/data
+      - ${CA_BUNDLE_PATH:-/dev/null}:/etc/ssl/certs/custom-ca-bundle.pem:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ── Onyx frontend (profile: onyx) ──────────────────────────────────────
+  # Alternative chat frontend with deep RAG + enterprise search.
+  # See docs/deployment-seams.md for details.
+
+  onyx-db:
+    image: postgres:16.4-alpine
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "5432"
+    volumes:
+      - onyx-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: onyx
+      POSTGRES_PASSWORD: ${LITELLM_DB_PASSWORD}
+      POSTGRES_DB: onyx
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onyx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  onyx-cache:
+    image: redis:7.4-alpine
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  onyx-index:
+    image: vespaengine/vespa:8
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "8081"
+      - "19071"
+    volumes:
+      - onyx-vespa-data:/opt/vespa/var
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:19071/state/v1/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  onyx-minio:
+    image: minio/minio:latest
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "9000"
+    volumes:
+      - onyx-minio-data:/data
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  onyx-model-server:
+    image: ${ONYX_MODEL_SERVER_IMAGE}
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "9000"
+    volumes:
+      - onyx-model-cache:/root/.cache/huggingface
+    environment:
+      INDEXING_ONLY: "true"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  onyx-api-server:
+    image: ${ONYX_BACKEND_IMAGE}
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "8080"
+    depends_on:
+      litellm:
+        condition: service_healthy
+      onyx-db:
+        condition: service_healthy
+      onyx-cache:
+        condition: service_healthy
+      onyx-index:
+        condition: service_healthy
+      onyx-model-server:
+        condition: service_started
+      phoenix:
+        condition: service_started
+    command: >
+      /bin/sh -c "alembic upgrade head &&
+      echo 'Starting Onyx API Server' &&
+      uvicorn onyx.main:app --host 0.0.0.0 --port 8080"
+    environment:
+      AUTH_TYPE: basic
+      POSTGRES_HOST: onyx-db
+      VESPA_HOST: onyx-index
+      REDIS_HOST: onyx-cache
+      MODEL_SERVER_HOST: onyx-model-server
+      FILE_STORE_BACKEND: s3
+      S3_ENDPOINT_URL: http://onyx-minio:9000
+      S3_AWS_ACCESS_KEY_ID: minioadmin
+      S3_AWS_SECRET_ACCESS_KEY: minioadmin
+      # LiteLLM as the LLM backend (seam surface)
+      GEN_AI_API_ENDPOINT: http://litellm:4000/v1
+      GEN_AI_API_KEY: ${LITELLM_MASTER_KEY}
+      GEN_AI_MODEL_VERSION: ${DEFAULT_CHAT_MODEL}
+      # Corporate proxy / TLS
+      REQUESTS_CA_BUNDLE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      SSL_CERT_FILE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+    volumes:
+      - ${CA_BUNDLE_PATH:-/dev/null}:/etc/ssl/certs/custom-ca-bundle.pem:ro
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  onyx-background:
+    image: ${ONYX_BACKEND_IMAGE}
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    depends_on:
+      onyx-api-server:
+        condition: service_healthy
+    command: >
+      /bin/sh -c "celery -A onyx.background.celery.celery_app worker
+      --loglevel=info --concurrency=2"
+    environment:
+      AUTH_TYPE: basic
+      POSTGRES_HOST: onyx-db
+      VESPA_HOST: onyx-index
+      REDIS_HOST: onyx-cache
+      MODEL_SERVER_HOST: onyx-model-server
+      FILE_STORE_BACKEND: s3
+      S3_ENDPOINT_URL: http://onyx-minio:9000
+      S3_AWS_ACCESS_KEY_ID: minioadmin
+      S3_AWS_SECRET_ACCESS_KEY: minioadmin
+      GEN_AI_API_ENDPOINT: http://litellm:4000/v1
+      GEN_AI_API_KEY: ${LITELLM_MASTER_KEY}
+      GEN_AI_MODEL_VERSION: ${DEFAULT_CHAT_MODEL}
+      REQUESTS_CA_BUNDLE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      SSL_CERT_FILE: ${CA_BUNDLE_PATH:+/etc/ssl/certs/custom-ca-bundle.pem}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      NO_PROXY: ${WORKBENCH_NO_PROXY}
+    volumes:
+      - ${CA_BUNDLE_PATH:-/dev/null}:/etc/ssl/certs/custom-ca-bundle.pem:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  onyx-web-server:
+    image: ${ONYX_WEB_IMAGE}
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    expose:
+      - "3000"
+    depends_on:
+      onyx-api-server:
+        condition: service_healthy
+    environment:
+      INTERNAL_URL: http://onyx-api-server:8080
+      NEXT_PUBLIC_DISABLE_STREAMING: "false"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  onyx-nginx:
+    image: nginx:1.27-alpine
+    profiles: [onyx]
+    restart: unless-stopped
+    networks: [agents]
+    ports:
+      - "127.0.0.1:${OPENWEBUI_PORT}:80"
+    depends_on:
+      onyx-api-server:
+        condition: service_healthy
+      onyx-web-server:
+        condition: service_started
+    volumes:
+      - ./config/onyx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    deploy:
+      resources:
+        limits:
+          memory: 64M

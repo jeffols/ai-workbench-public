@@ -1,0 +1,104 @@
+# AI Workbench — Registry Catalog
+#
+# Declarative YAML defining all workbench components for Agentregistry.
+# Apply with:  python3 registry/apply.py
+# Clear with:  python3 registry/apply.py --delete
+#
+# Resources are ordered: MCP servers first, then skills, then agents.
+# Uses the ar.dev/v1alpha1 declarative format.
+
+# ─── MCP Servers ───────────────────────────────────────────────────
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: workbench/magic-fetch
+  version: "1.0.0"
+spec:
+  title: Magic Fetch
+  description: "URL content extraction and web scraping MCP server"
+  packages:
+    - registryType: docker
+      identifier: services/magic-fetch
+      runtimeHint: docker
+      transport:
+        type: stdio
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: workbench/open-terminal
+  version: "1.0.0"
+spec:
+  title: Open Terminal
+  description: "Sandboxed code execution environment with terminal access"
+  packages:
+    - registryType: oci
+      identifier: ghcr.io/open-webui/open-terminal:latest
+      runtimeHint: docker
+      transport:
+        type: streamable-http
+        url: http://open-terminal:8000
+
+# ─── Skills ────────────────────────────────────────────────────────
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: Skill
+metadata:
+  name: code-execution
+  version: "1.0.0"
+spec:
+  title: Code Execution
+  category: compute
+  description: "Execute Python, Bash, and other code in a sandboxed container via Open Terminal"
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: Skill
+metadata:
+  name: web-retrieval
+  version: "1.0.0"
+spec:
+  title: Web Content Retrieval
+  category: knowledge
+  description: "Fetch and extract structured content from URLs and web pages"
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: Skill
+metadata:
+  name: vector-search
+  version: "1.0.0"
+spec:
+  title: Vector Search (RAG)
+  category: knowledge
+  description: "Semantic document retrieval via Chroma vector database for retrieval-augmented generation"
+
+# ─── Agents ────────────────────────────────────────────────────────
+
+---
+apiVersion: ar.dev/v1alpha1
+kind: Agent
+metadata:
+  name: code-agent
+  version: "1.0.0"
+spec:
+  title: Code Agent
+  description: "Executes code in sandboxed Open Terminal environment for data analysis and automation tasks"
+  image: services/code-agent
+  language: python
+  framework: fastapi-mcp
+  modelProvider: LiteLLM
+  modelName: openai-strong
+  mcpServers:
+    - name: workbench/open-terminal
+      type: streamable-http
+      url: http://open-terminal:8000
+  skills:
+    - name: code-execution
+      registryURL: http://agentregistry:8080
+      registrySkillName: code-execution
+      registrySkillVersion: "1.0.0"

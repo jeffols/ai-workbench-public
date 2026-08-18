@@ -1,0 +1,27 @@
+# Compose fragment for magic-fetch (demand-signal collector).
+# Included by the root docker-compose.yml via Compose `include`.
+
+services:
+  magic-fetch:
+    build: .
+    profiles: [tools]
+    restart: unless-stopped
+    networks: [tools]
+    expose:
+      - "8000"
+    depends_on:
+      phoenix:
+        condition: service_started
+    environment:
+      OTEL_SERVICE_NAME: magic-fetch
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

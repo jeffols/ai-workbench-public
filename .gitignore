@@ -1,0 +1,18 @@
+.env
+config/litellm/config.yaml
+config/caddy/Caddyfile
+config/catalog/
+config/openwebui/compose.tool-connections.yaml
+config/workbench-tools.json
+docker-compose.override.yml
+.claude/
+__pycache__/
+*.pyc
+.DS_Store
+litellm_config.yaml
+.cache/
+.env.backup
+
+# Agentregistry upstream clone — build context only, populated by
+# scripts/fetch_agentregistry.py.  Do not commit.
+services/agentregistry/upstream/

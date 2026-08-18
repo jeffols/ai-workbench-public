@@ -1,0 +1,155 @@
+# System Architecture
+
+```mermaid
+graph TB
+    subgraph HOST["🖥️ Host (localhost)"]
+        USER(("👤 User"))
+    end
+
+    subgraph COMPOSE["Docker Compose · ai-workbench"]
+        subgraph CORE["Platform Core (always on)"]
+            CADDY["🚪 Caddy<br/>:8090 / :80<br/><i>reverse proxy · catalog · status</i>"]
+            LITELLM["⚡ LiteLLM<br/>:4000<br/><i>model gateway</i>"]
+            LITELLM_DB["🐘 Postgres<br/>:5432<br/><i>LiteLLM state</i>"]
+            PHOENIX["🔭 Phoenix<br/>:6006<br/><i>OTEL tracing</i>"]
+            CHROMA["🔍 Chroma<br/><i>vector store</i>"]
+        end
+
+        subgraph UI["UI Layer (always on)"]
+            OPENWEBUI["💬 Open WebUI<br/>:3000 · chat.localhost<br/><i>chat frontend</i>"]
+        end
+
+        subgraph NOTEBOOK_PROFILE["Open Notebook (profile: notebook)"]
+            NOTEBOOK["📓 Open Notebook<br/>:8502 · notebook.localhost<br/><i>research UI</i>"]
+            SURREAL["🗄️ SurrealDB<br/><i>notebook persistence</i>"]
+        end
+
+        subgraph DATA_SERVERS["MCP Data Servers (profile: tools)"]
+            DIR_MCP["📂 directory-mcp<br/><i>directory queries</i>"]
+            TICKET_MCP["📋 ticketing-mcp<br/><i>ticketing data queries</i>"]
+            MAGIC["✨ magic-fetch<br/><i>demand-signal collector</i>"]
+        end
+
+        subgraph AGENTS["MCP Agents (profile: tools)"]
+            CODE_AGENT["🤖 code-agent<br/><i>Python execution via sandbox</i>"]
+            DIR_AGENT["🤖 directory-agent<br/><i>org hierarchy queries</i>"]
+            TICKET_AGENT["🤖 ticketing-agent<br/><i>ticketing analysis</i>"]
+            ENRICH_AGENT["🤖 enrichment-agent<br/><i>cross-source orchestrator</i>"]
+        end
+
+        subgraph SANDBOX["Compute Layer (profile: tools)"]
+            CODE_SANDBOX["📦 Open Terminal<br/><i>sandboxed Python runtime</i>"]
+            MCPO["🔌 mcpo<br/><i>MCP → OpenAPI proxy</i>"]
+        end
+    end
+
+    subgraph EXTERNAL["External APIs"]
+        OPENAI["OpenAI API"]
+        ANTHROPIC["Anthropic API"]
+        AZURE["Azure OpenAI"]
+        DIR_SERVER["Directory service<br/><i>LDAPS</i>"]
+        TICKET_API["the ticketing system<br/><i>REST API</i>"]
+    end
+
+    %% User → Host ports
+    USER -- ":3000" --> OPENWEBUI
+    USER -- ":8090 /catalog" --> CADDY
+    USER -- ":8090 /mcp/*" --> CADDY
+    USER -. ":8502 (optional)" .-> NOTEBOOK
+
+    %% Open WebUI → platform
+    OPENWEBUI -- "chat · embeddings" --> LITELLM
+    OPENWEBUI -- "RAG vectors" --> CHROMA
+    OPENWEBUI -- "MCP tool calls" --> CADDY
+
+    %% Caddy → MCP tools (slug-based routing)
+    CADDY -- "/mcp/code-agent/*" --> CODE_AGENT
+    CADDY -- "/mcp/directory-agent/*" --> DIR_AGENT
+    CADDY -- "/mcp/directory-mcp/*" --> DIR_MCP
+    CADDY -- "/mcp/ticketing-agent/*" --> TICKET_AGENT
+    CADDY -- "/mcp/ticketing-mcp/*" --> TICKET_MCP
+    CADDY -- "/mcp/enrichment-agent/*" --> ENRICH_AGENT
+    CADDY -- "/mcp/magic-fetch/*" --> MAGIC
+
+    %% Agents → LiteLLM (reasoning)
+    CODE_AGENT -- "reasoning" --> LITELLM
+    DIR_AGENT -- "reasoning" --> LITELLM
+    TICKET_AGENT -- "reasoning" --> LITELLM
+    ENRICH_AGENT -- "reasoning" --> LITELLM
+
+    %% Agents → data servers / sandbox
+    DIR_AGENT -- "data" --> DIR_MCP
+    TICKET_AGENT -- "data" --> TICKET_MCP
+    CODE_AGENT -- "execute" --> CODE_SANDBOX
+    ENRICH_AGENT -- "execute" --> CODE_SANDBOX
+    ENRICH_AGENT -. "delegates" .-> DIR_AGENT
+    ENRICH_AGENT -. "delegates" .-> TICKET_AGENT
+
+    %% Sandbox → mcpo → data servers (code-driven path)
+    CODE_SANDBOX -- "REST" --> MCPO
+    MCPO -- "MCP" --> DIR_MCP
+    MCPO -- "MCP" --> TICKET_MCP
+
+    %% Platform internals
+    LITELLM --> LITELLM_DB
+    NOTEBOOK -- "chat" --> LITELLM
+    NOTEBOOK -- "persistence" --> SURREAL
+
+    %% External
+    LITELLM --> OPENAI
+    LITELLM --> ANTHROPIC
+    LITELLM --> AZURE
+    DIR_MCP -- "LDAPS" --> DIR_SERVER
+    TICKET_MCP -- "REST" --> TICKET_API
+
+    %% OTEL (simplified — all instrumented services → Phoenix)
+    OPENWEBUI -. "OTEL" .-> PHOENIX
+    LITELLM -. "OTEL" .-> PHOENIX
+    CODE_AGENT -. "OTEL" .-> PHOENIX
+    DIR_AGENT -. "OTEL" .-> PHOENIX
+    TICKET_AGENT -. "OTEL" .-> PHOENIX
+    ENRICH_AGENT -. "OTEL" .-> PHOENIX
+    MAGIC -. "OTEL" .-> PHOENIX
+
+    style CORE fill:#1a1a2e,color:#fff
+    style UI fill:#16213e,color:#fff
+    style NOTEBOOK_PROFILE fill:#16213e,color:#fff,stroke-dasharray: 5 5
+    style DATA_SERVERS fill:#0f3460,color:#fff
+    style AGENTS fill:#0f3460,color:#fff
+    style SANDBOX fill:#0f3460,color:#fff
+    style EXTERNAL fill:#533483,color:#fff
+    style HOST fill:#e94560,color:#fff
+```
+
+## Data flow summary
+
+- **User → Open WebUI → Caddy → MCP tools** — slug-based routing (`/mcp/<slug>/*`)
+- **Agents → LiteLLM** — reasoning via ReAct loops
+- **Agents → data servers** — `directory-agent` → `directory-mcp`, `ticketing-agent` → `ticketing-mcp`
+- **Agents → Open Terminal** — `code-agent` and `enrichment-agent` execute Python
+- **Open Terminal → mcpo → data servers** — generated Python calls enterprise APIs via REST (deterministic, no LLM in loop)
+- **enrichment-agent → specialist agents** — delegates data gathering to `directory-agent` and `ticketing-agent`
+- **LiteLLM → external APIs** — OpenAI, Anthropic, Azure
+- **Everything → Phoenix** — OTEL traces for observability
+
+## Service inventory
+
+| Service | Profile | Role | Endpoint |
+|---------|---------|------|----------|
+| Caddy | core | Reverse proxy, catalog, status dashboard | `:8090`, `ai-workbench.localhost` |
+| LiteLLM | core | Model gateway / router | `:4000`, `litellm.localhost` |
+| Postgres | core | LiteLLM state | `:5432` |
+| Phoenix | core | OTEL trace collector | `phoenix.localhost` |
+| Chroma | core | Vector DB for RAG | internal only |
+| Open WebUI | core | Chat frontend | `:3000`, `chat.localhost` |
+| Open Notebook | notebook | Research UI | `:8502`, `notebook.localhost` |
+| SurrealDB | notebook | Notebook persistence | internal only |
+| directory-mcp | tools | directory data server | `/mcp/directory-mcp` |
+| ticketing-mcp | tools | the ticketing system data server | `/mcp/ticketing-mcp` |
+| magic-fetch | tools | Demand-signal collector | `/mcp/magic-fetch` |
+| directory-agent | tools | Org hierarchy agent | `/mcp/directory-agent` |
+| ticketing-agent | tools | ticketing analysis agent | `/mcp/ticketing-agent` |
+| code-agent | tools | Python execution agent | `/mcp/code-agent` |
+| enrichment-agent | tools | Cross-source orchestrator | `/mcp/enrichment-agent` |
+| Open Terminal | tools | Sandboxed Python runtime (replaces code-sandbox) | internal only |
+| mcpo | tools | MCP → OpenAPI proxy (tool gateway) | `/mcpo/*` (docs), internal `mcpo:8000` |
